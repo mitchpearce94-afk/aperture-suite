@@ -10,7 +10,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input, Select, Textarea } from '@/components/ui/form-fields';
 import { Combobox } from '@/components/ui/combobox';
 import { formatDate, initials, cn, formatCurrency } from '@/lib/utils';
-import { getLeads, getClients, createLead, updateLead, deleteLead, getCurrentPhotographer, createClient as createClientQuery } from '@/lib/queries';
+import { getLeads, getClients, createLead, updateLead, deleteLead, getCurrentPhotographer, createNewClient } from '@/lib/queries';
 import { Inbox, Plus, LayoutGrid, List, Calendar as CalendarIcon, Pencil, Trash2, MapPin, User, MessageSquare } from 'lucide-react';
 import type { Lead, LeadStatus, Client } from '@/lib/types';
 
@@ -176,7 +176,7 @@ export default function LeadsPage() {
     if (isNewClient) {
       const firstName = form.get('new_first_name') as string;
       if (!firstName) { setSaving(false); return; }
-      const newClient = await createClientQuery({
+      const newClient = await createNewClient({
         photographer_id: photographerId,
         first_name: firstName,
         last_name: form.get('new_last_name') as string || undefined,

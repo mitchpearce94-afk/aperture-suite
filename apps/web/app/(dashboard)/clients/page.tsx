@@ -9,7 +9,7 @@ import { SlideOver } from '@/components/ui/slide-over';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input, Select, Textarea } from '@/components/ui/form-fields';
 import { formatDate, initials } from '@/lib/utils';
-import { getClients, createClient as createClientQuery, updateClient, deleteClient, getCurrentPhotographer } from '@/lib/queries';
+import { getClients, createNewClient, updateClient, deleteClient, getCurrentPhotographer } from '@/lib/queries';
 import { Users, Plus, Search, Mail, Phone, Pencil, Trash2, X } from 'lucide-react';
 import type { Client } from '@/lib/types';
 
@@ -60,7 +60,7 @@ export default function ClientsPage() {
     setSaving(true);
     const form = new FormData(e.currentTarget);
     const tagsRaw = form.get('tags') as string;
-    const newClient = await createClientQuery({
+    const newClient = await createNewClient({
       photographer_id: photographerId,
       first_name: form.get('first_name') as string,
       last_name: form.get('last_name') as string || undefined,
