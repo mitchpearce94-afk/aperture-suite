@@ -61,7 +61,6 @@ export default function ClientsPage() {
     const form = new FormData(e.currentTarget);
     const tagsRaw = form.get('tags') as string;
     const newClient = await createNewClient({
-      photographer_id: photographerId,
       first_name: form.get('first_name') as string,
       last_name: form.get('last_name') as string || undefined,
       email: form.get('email') as string || undefined,
