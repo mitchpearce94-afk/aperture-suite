@@ -1,0 +1,3 @@
+-- Add time fields to jobs
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS time TEXT;
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS end_time TEXT;
