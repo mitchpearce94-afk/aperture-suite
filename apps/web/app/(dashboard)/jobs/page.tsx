@@ -160,8 +160,8 @@ export default function JobsPage() {
     const newJob = await createJob({
       client_id: selectedClientId || undefined,
       job_type: form.get('job_type') as string || undefined,
-      title: (form.get('title') as string) || 'Untitled Job',
-      shoot_date: form.get('date') as string || undefined,
+      title: form.get('title') as string || undefined,
+      date: form.get('date') as string || undefined,
       time: addFormStartTime || undefined,
       end_time: addFormEndTime || undefined,
       location: form.get('location') as string || undefined,
@@ -196,8 +196,8 @@ export default function JobsPage() {
     const updated = await updateJob(selectedJob.id, {
       client_id: editClientId || selectedJob.client_id,
       job_type: form.get('job_type') as string || undefined,
-      title: (form.get('title') as string) || 'Untitled Job',
-      shoot_date: form.get('date') as string || undefined,
+      title: form.get('title') as string || undefined,
+      date: form.get('date') as string || undefined,
       time: form.get('time') as string || undefined,
       end_time: form.get('end_time') as string || undefined,
       location: form.get('location') as string || undefined,

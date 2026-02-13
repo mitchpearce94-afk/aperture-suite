@@ -239,10 +239,10 @@ export async function getJobs(): Promise<Job[]> {
 
 export async function createJob(job: {
   client_id?: string;
-  title: string;
+  title?: string;
   job_type?: string;
   status?: string;
-  shoot_date?: string;
+  date?: string;
   time?: string;
   end_time?: string;
   location?: string;
@@ -348,11 +348,11 @@ export async function createInvoice(invoice: {
   invoice_number: string;
   invoice_type?: string;
   status?: string;
-  line_items: any[];
-  subtotal: number;
-  tax_rate: number;
-  tax_amount: number;
+  amount: number;
+  tax: number;
   total: number;
+  currency?: string;
+  line_items: any[];
   due_date?: string;
   notes?: string;
 }): Promise<Invoice | null> {
