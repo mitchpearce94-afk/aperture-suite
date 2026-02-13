@@ -229,7 +229,7 @@ export async function getJobs(): Promise<Job[]> {
   const { data, error } = await sb
     .from('jobs')
     .select('*, client:clients(first_name, last_name, email, phone)')
-    .order('shoot_date', { ascending: true });
+    .order('date', { ascending: true });
 
   if (error) {
     console.error('Error fetching jobs:', error);
@@ -436,7 +436,7 @@ export async function getDashboardStats() {
   const [clients, leads, jobs, invoices] = await Promise.all([
     sb.from('clients').select('id', { count: 'exact' }),
     sb.from('leads').select('id, status', { count: 'exact' }),
-    sb.from('jobs').select('id, status, package_amount, shoot_date, time, end_time, title, client:clients(first_name, last_name)', { count: 'exact' }),
+    sb.from('jobs').select('id, status, package_amount, date, time, end_time, title, client:clients(first_name, last_name)', { count: 'exact' }),
     sb.from('invoices').select('id, status, total'),
   ]);
 
@@ -447,8 +447,8 @@ export async function getDashboardStats() {
   const activeLeads = (leads.data || []).filter((l: any) => !['lost', 'booked'].includes(l.status)).length;
 
   const upcomingJobs = (jobs.data || [])
-    .filter((j: any) => j.status === 'upcoming' && j.shoot_date)
-    .sort((a: any, b: any) => new Date(a.shoot_date).getTime() - new Date(b.shoot_date).getTime())
+    .filter((j: any) => j.status === 'upcoming' && j.date)
+    .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
     .slice(0, 5);
 
   return {
