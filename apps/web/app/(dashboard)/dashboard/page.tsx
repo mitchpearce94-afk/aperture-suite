@@ -13,8 +13,8 @@ import Link from 'next/link';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState({
-    total_clients: 0, pending_leads: 0, active_jobs: 0, upcoming_shoots: 0,
-    overdue_invoices: 0, revenue_month: 0, galleries_delivered: 0,
+    totalClients: 0, totalLeads: 0, activeLeads: 0, totalJobs: 0,
+    totalRevenue: 0, upcomingJobs: [] as any[],
   });
   const [recentLeads, setRecentLeads] = useState<any[]>([]);
   const [upcomingJobs, setUpcomingJobs] = useState<any[]>([]);
@@ -46,7 +46,7 @@ export default function DashboardPage() {
     );
   }
 
-  const isEmpty = stats.total_clients === 0 && stats.pending_leads === 0 && stats.active_jobs === 0;
+  const isEmpty = stats.totalClients === 0 && stats.activeLeads === 0 && stats.totalJobs === 0;
 
   return (
     <div className="space-y-6">
@@ -59,22 +59,10 @@ export default function DashboardPage() {
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Revenue This Month" value={formatCurrency(stats.revenue_month)} icon={DollarSign} />
-        <StatCard title="Pending Leads" value={stats.pending_leads} icon={Inbox} />
-        <StatCard title="Active Jobs" value={stats.active_jobs} icon={Briefcase} />
-        <StatCard title="Upcoming Shoots" value={stats.upcoming_shoots} icon={Calendar} />
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total Clients" value={stats.total_clients} icon={Users} />
-        <StatCard title="Galleries Delivered" value={stats.galleries_delivered} icon={ImageIcon} />
-        <StatCard
-          title="Overdue Invoices"
-          value={stats.overdue_invoices}
-          icon={AlertCircle}
-          className={stats.overdue_invoices > 0 ? 'border-red-500/20' : ''}
-        />
-        <StatCard title="AI Processed" value="0" icon={Wand2} />
+        <StatCard title="Revenue" value={formatCurrency(stats.totalRevenue)} icon={DollarSign} />
+        <StatCard title="Active Leads" value={stats.activeLeads} icon={Inbox} />
+        <StatCard title="Total Jobs" value={stats.totalJobs} icon={Briefcase} />
+        <StatCard title="Total Clients" value={stats.totalClients} icon={Users} />
       </div>
 
       {/* Content panels */}
