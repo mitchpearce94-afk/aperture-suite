@@ -12,11 +12,11 @@ export default function DashboardLayout({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className="flex h-screen bg-[#0a0a0f]">
+    <div className="flex h-screen bg-[#0a0a0f] overflow-hidden">
       <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
-      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <TopBar onMenuClick={() => setMobileMenuOpen(true)} />
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-6">
           {children}
         </main>
       </div>
