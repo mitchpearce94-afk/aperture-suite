@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { RotateCcw, Upload, Pencil } from 'lucide-react';
+import { RotateCcw, Upload, Pencil, Check } from 'lucide-react';
 
 interface SignaturePadProps {
   onSignatureChange: (dataUrl: string | null) => void;
@@ -90,15 +90,15 @@ export function SignaturePad({
   }, [isDrawing, getCanvasCoords, isDark]);
 
   const stopDrawing = useCallback(() => {
-    if (isDrawing) {
-      setIsDrawing(false);
-      // Emit the signature
-      const canvas = canvasRef.current;
-      if (canvas) {
-        onSignatureChange(canvas.toDataURL('image/png'));
-      }
+    setIsDrawing(false);
+  }, []);
+
+  function saveSignature() {
+    const canvas = canvasRef.current;
+    if (canvas && hasDrawn) {
+      onSignatureChange(canvas.toDataURL('image/png'));
     }
-  }, [isDrawing, onSignatureChange]);
+  }
 
   function clearCanvas() {
     const canvas = canvasRef.current;
@@ -206,15 +206,26 @@ export function SignaturePad({
             )}
           </div>
           {hasDrawn && (
-            <button
-              type="button"
-              onClick={clearCanvas}
-              className={`inline-flex items-center gap-1.5 text-xs transition-colors ${
-                isDark ? 'text-slate-500 hover:text-slate-300' : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <RotateCcw className="w-3 h-3" />Clear
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={saveSignature}
+                className={`inline-flex items-center gap-1.5 text-xs font-medium transition-colors ${
+                  isDark ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-500 hover:text-indigo-600'
+                }`}
+              >
+                <Check className="w-3 h-3" />Confirm
+              </button>
+              <button
+                type="button"
+                onClick={clearCanvas}
+                className={`inline-flex items-center gap-1.5 text-xs transition-colors ${
+                  isDark ? 'text-slate-500 hover:text-slate-300' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <RotateCcw className="w-3 h-3" />Clear
+              </button>
+            </div>
           )}
         </>
       ) : (
