@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Modal } from '@/components/ui/modal';
 import {
   getProcessingJobs,
   getStyleProfiles,
@@ -14,6 +13,7 @@ import type { ProcessingJob, StyleProfile } from '@/lib/types';
 import { ProcessingCard, StyleCard } from '@/components/editing/editing-cards';
 import { ReviewWorkspace } from '@/components/editing/review-workspace';
 import { PhotoUpload } from '@/components/editing/photo-upload';
+import { CreateStyleFlow } from '@/components/editing/style-upload';
 import {
   generateMockProcessingJobs,
   generateMockStyles,
@@ -25,68 +25,6 @@ import {
 } from 'lucide-react';
 
 type TabId = 'upload' | 'queue' | 'review' | 'styles';
-
-// ============================================
-// Create Style Modal
-// ============================================
-function CreateStyleModal({ open, onClose, onCreate }: { open: boolean; onClose: () => void; onCreate: (name: string, description: string) => void }) {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-
-  const handleSubmit = () => {
-    if (!name.trim()) return;
-    onCreate(name, description);
-    setName('');
-    setDescription('');
-    onClose();
-  };
-
-  return (
-    <Modal open={open} onClose={onClose} title="Create Style Profile">
-      <div className="space-y-4">
-        <div>
-          <label className="block text-xs font-medium text-slate-400 mb-1.5">Style Name</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Clean & Bright, Moody Film..."
-            className="w-full px-3 py-2 text-sm bg-white/[0.04] border border-white/[0.08] rounded-lg text-slate-300 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-400 mb-1.5">Description</label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Describe the look and feel of this style..."
-            rows={3}
-            className="w-full px-3 py-2 text-sm bg-white/[0.04] border border-white/[0.08] rounded-lg text-slate-300 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 resize-none"
-          />
-        </div>
-        <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
-          <div className="flex items-start gap-2">
-            <Upload className="w-4 h-4 text-slate-500 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-xs font-medium text-slate-300">Reference Images</p>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Upload 50–200 reference images that represent your editing style. These will be used to train the AI to match your look.
-              </p>
-              <button className="mt-2 text-xs text-indigo-400 hover:text-indigo-300 font-medium">Upload images →</button>
-              <p className="text-[10px] text-slate-600 mt-1">File upload infrastructure coming soon. Style profile will be saved and ready for training once uploads are enabled.</p>
-            </div>
-          </div>
-        </div>
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
-          <Button size="sm" onClick={handleSubmit} disabled={!name.trim()}>
-            <Plus className="w-3 h-3" />Create Style
-          </Button>
-        </div>
-      </div>
-    </Modal>
-  );
-}
 
 // ============================================
 // Main Page
@@ -127,23 +65,39 @@ export default function EditingPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const handleCreateStyle = async (name: string, description: string) => {
+  const handleCreateStyle = async (name: string, description: string, config: Record<string, any>, imageKeys: string[]) => {
     if (useMockData) {
       const newStyle: StyleProfile = {
         id: `sp-new-${Date.now()}`,
         photographer_id: 'p-1',
         name,
         description,
-        reference_image_keys: [],
-        settings: { retouch_intensity: 'medium', cleanup_level: 'moderate' },
-        status: 'pending',
+        reference_image_keys: imageKeys.length > 0 ? imageKeys : Array.from({ length: 150 }, (_, i) => `ref/new/img_${i}.jpg`),
+        settings: config,
+        status: imageKeys.length > 0 ? 'training' : 'pending',
+        training_started_at: imageKeys.length > 0 ? new Date().toISOString() : undefined,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
       setStyles((prev) => [newStyle, ...prev]);
     } else {
-      const result = await createStyleProfile({ name, description });
-      if (result) setStyles((prev) => [result, ...prev]);
+      const result = await createStyleProfile({ name, description, settings: config });
+      if (result) {
+        // Update with image keys
+        const { createClient } = await import('@/lib/supabase/client');
+        const sb = createClient();
+        await sb.from('style_profiles').update({
+          reference_image_keys: imageKeys,
+          status: 'training',
+          training_started_at: new Date().toISOString(),
+        }).eq('id', result.id);
+        setStyles((prev) => [{
+          ...result,
+          reference_image_keys: imageKeys,
+          status: 'training' as const,
+          training_started_at: new Date().toISOString(),
+        }, ...prev]);
+      }
     }
   };
 
@@ -298,7 +252,7 @@ export default function EditingPage() {
         </div>
       )}
 
-      <CreateStyleModal open={showCreateStyle} onClose={() => setShowCreateStyle(false)} onCreate={handleCreateStyle} />
+      <CreateStyleFlow open={showCreateStyle} onClose={() => setShowCreateStyle(false)} onCreate={handleCreateStyle} />
     </div>
   );
 }
