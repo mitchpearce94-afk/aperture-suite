@@ -14,7 +14,7 @@ export default function DashboardLayout({
   return (
     <div className="flex h-screen bg-[#0a0a0f] overflow-hidden">
       <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0">
         <div className="sticky top-0 z-30 flex-shrink-0">
           <TopBar onMenuClick={() => setMobileMenuOpen(true)} />
         </div>
