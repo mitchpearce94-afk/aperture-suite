@@ -1,5 +1,5 @@
 import { createClient as createSupabaseClient } from '@/lib/supabase/client';
-import type { Client, Lead, Job, Invoice, Gallery, Photographer } from '@/lib/types';
+import type { Client, Lead, Job, Invoice, Gallery, Photographer, Photo, ProcessingJob, StyleProfile } from '@/lib/types';
 
 const supabase = () => createSupabaseClient();
 
@@ -495,4 +495,211 @@ export async function syncJobEndTimes(packageName: string, durationHours: number
   }
 
   return updated;
+}
+
+// ============================================
+// Processing Jobs
+// ============================================
+
+export async function getProcessingJobs(): Promise<ProcessingJob[]> {
+  const sb = supabase();
+  const { data, error } = await sb
+    .from('processing_jobs')
+    .select('*, gallery:galleries(title, job_id, job:jobs(title, job_number, client:clients(first_name, last_name)))')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching processing jobs:', error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function createProcessingJob(processingJob: {
+  gallery_id: string;
+  style_profile_id?: string;
+  total_images: number;
+  settings_override?: Record<string, unknown>;
+}): Promise<ProcessingJob | null> {
+  const photographer = await getCurrentPhotographer();
+  if (!photographer) {
+    console.error('No photographer profile found — cannot create processing job');
+    return null;
+  }
+
+  const sb = supabase();
+  const { data, error } = await sb
+    .from('processing_jobs')
+    .insert({
+      ...processingJob,
+      photographer_id: photographer.id,
+      status: 'queued',
+      processed_images: 0,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating processing job:', error);
+    return null;
+  }
+  return data;
+}
+
+export async function updateProcessingJob(id: string, updates: Partial<ProcessingJob>): Promise<ProcessingJob | null> {
+  const sb = supabase();
+  const { data, error } = await sb
+    .from('processing_jobs')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating processing job:', error);
+    return null;
+  }
+  return data;
+}
+
+// ============================================
+// Photos
+// ============================================
+
+export async function getPhotos(galleryId: string): Promise<Photo[]> {
+  const sb = supabase();
+  const { data, error } = await sb
+    .from('photos')
+    .select('*')
+    .eq('gallery_id', galleryId)
+    .order('sort_order', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching photos:', error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function updatePhoto(id: string, updates: Partial<Photo>): Promise<Photo | null> {
+  const sb = supabase();
+  const { data, error } = await sb
+    .from('photos')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating photo:', error);
+    return null;
+  }
+  return data;
+}
+
+export async function bulkUpdatePhotos(ids: string[], updates: Partial<Photo>): Promise<boolean> {
+  const sb = supabase();
+  const { error } = await sb
+    .from('photos')
+    .update(updates)
+    .in('id', ids);
+
+  if (error) {
+    console.error('Error bulk updating photos:', error);
+    return false;
+  }
+  return true;
+}
+
+// ============================================
+// Style Profiles
+// ============================================
+
+export async function getStyleProfiles(): Promise<StyleProfile[]> {
+  const sb = supabase();
+  const { data, error } = await sb
+    .from('style_profiles')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching style profiles:', error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function createStyleProfile(profile: {
+  name: string;
+  description?: string;
+  settings?: Record<string, unknown>;
+}): Promise<StyleProfile | null> {
+  const photographer = await getCurrentPhotographer();
+  if (!photographer) {
+    console.error('No photographer profile found — cannot create style profile');
+    return null;
+  }
+
+  const sb = supabase();
+  const { data, error } = await sb
+    .from('style_profiles')
+    .insert({
+      ...profile,
+      photographer_id: photographer.id,
+      status: 'pending',
+      reference_image_keys: [],
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating style profile:', error);
+    return null;
+  }
+  return data;
+}
+
+export async function updateStyleProfile(id: string, updates: Partial<StyleProfile>): Promise<StyleProfile | null> {
+  const sb = supabase();
+  const { data, error } = await sb
+    .from('style_profiles')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating style profile:', error);
+    return null;
+  }
+  return data;
+}
+
+export async function deleteStyleProfile(id: string): Promise<boolean> {
+  const sb = supabase();
+  const { error } = await sb.from('style_profiles').delete().eq('id', id);
+  if (error) {
+    console.error('Error deleting style profile:', error);
+    return false;
+  }
+  return true;
+}
+
+// ============================================
+// Jobs with editing status (for Auto Editing page)
+// ============================================
+
+export async function getEditingJobs(): Promise<Job[]> {
+  const sb = supabase();
+  const { data, error } = await sb
+    .from('jobs')
+    .select('*, client:clients(first_name, last_name, email, phone)')
+    .in('status', ['editing', 'delivered', 'completed'])
+    .order('date', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching editing jobs:', error);
+    return [];
+  }
+  return data || [];
 }

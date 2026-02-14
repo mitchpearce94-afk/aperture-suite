@@ -82,7 +82,7 @@ export interface Lead {
   updated_at: string;
 }
 
-export type JobStatus = 'upcoming' | 'in_progress' | 'editing' | 'delivered' | 'completed' | 'canceled';
+export type JobStatus = 'upcoming' | 'in_progress' | 'editing' | 'ready_for_review' | 'delivered' | 'completed' | 'canceled';
 
 export interface Job {
   id: string;

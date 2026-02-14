@@ -1,0 +1,404 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import type { Photo } from '@/lib/types';
+import type { ProcessingJobWithGallery } from './mock-data';
+import { generateMockPhotos } from './mock-data';
+import {
+  Wand2, CheckCircle2, Sparkles, Camera, SlidersHorizontal,
+  MessageSquare, Check, X, Star, Filter, ArrowLeft, Send,
+  AlertCircle,
+} from 'lucide-react';
+
+export function ReviewWorkspace({ processingJob, onBack }: { processingJob: ProcessingJobWithGallery; onBack: () => void }) {
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
+  const [filterSection, setFilterSection] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [promptText, setPromptText] = useState('');
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const mockPhotos = generateMockPhotos();
+    setPhotos(mockPhotos);
+    setLoading(false);
+  }, [processingJob.gallery_id]);
+
+  const sections = ['all', ...Array.from(new Set(photos.map((p) => p.section).filter(Boolean)))] as string[];
+
+  const filtered = photos.filter((p) => {
+    if (p.is_culled) return false;
+    if (filterSection !== 'all' && p.section !== filterSection) return false;
+    if (filterStatus !== 'all' && p.status !== filterStatus) return false;
+    return true;
+  });
+
+  const stats = {
+    total: photos.filter((p) => !p.is_culled).length,
+    edited: photos.filter((p) => p.status === 'edited').length,
+    approved: photos.filter((p) => p.status === 'approved').length,
+    needsReview: photos.filter((p) => p.needs_review).length,
+    culled: photos.filter((p) => p.is_culled).length,
+  };
+
+  const handleApprove = (photoId: string) => {
+    setPhotos((prev) => prev.map((p) => (p.id === photoId ? { ...p, status: 'approved' as const, needs_review: false } : p)));
+    const idx = filtered.findIndex((p) => p.id === photoId);
+    if (idx < filtered.length - 1) setSelectedPhoto(filtered[idx + 1]);
+    else setSelectedPhoto(null);
+  };
+
+  const handleReject = (photoId: string) => {
+    setPhotos((prev) => prev.map((p) => (p.id === photoId ? { ...p, is_culled: true } : p)));
+    const idx = filtered.findIndex((p) => p.id === photoId);
+    if (idx < filtered.length - 1) setSelectedPhoto(filtered[idx + 1]);
+    else setSelectedPhoto(null);
+  };
+
+  const handleBulkApprove = () => {
+    if (selectedIds.size > 0) {
+      setPhotos((prev) => prev.map((p) => (selectedIds.has(p.id) ? { ...p, status: 'approved' as const, needs_review: false } : p)));
+    } else {
+      const visibleIds = new Set(filtered.map((p) => p.id));
+      setPhotos((prev) => prev.map((p) => (visibleIds.has(p.id) ? { ...p, status: 'approved' as const, needs_review: false } : p)));
+    }
+    setSelectedIds(new Set());
+    setSelectMode(false);
+  };
+
+  const handlePromptSubmit = () => {
+    if (!promptText.trim() || !selectedPhoto) return;
+    const edit = { prompt: promptText, result: 'Applied', timestamp: new Date().toISOString(), confidence: 92 };
+    setPhotos((prev) => prev.map((p) => p.id === selectedPhoto.id ? { ...p, prompt_edits: [...p.prompt_edits, edit] } : p));
+    setPromptText('');
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="w-6 h-6 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  const clientName = processingJob.gallery?.job?.client
+    ? `${processingJob.gallery.job.client.first_name} ${processingJob.gallery.job.client.last_name || ''}`
+    : '';
+
+  // ====== Single photo detail view ======
+  if (selectedPhoto) {
+    const idx = filtered.findIndex((p) => p.id === selectedPhoto.id);
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setSelectedPhoto(null)} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-slate-400 hover:text-white transition-all">
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div>
+              <h2 className="text-sm font-semibold text-white">{selectedPhoto.filename}</h2>
+              <p className="text-xs text-slate-500">
+                {idx + 1} of {filtered.length} · {selectedPhoto.scene_type} · Quality: {selectedPhoto.quality_score}/100
+                {selectedPhoto.edit_confidence !== undefined && ` · AI Confidence: ${selectedPhoto.edit_confidence}%`}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="danger" size="sm" onClick={() => handleReject(selectedPhoto.id)}>
+              <X className="w-3 h-3" />Reject
+            </Button>
+            <Button size="sm" onClick={() => handleApprove(selectedPhoto.id)}>
+              <Check className="w-3 h-3" />Approve
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2 space-y-4">
+            {/* Before / After */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl border border-white/[0.06] bg-[#0c0c16] overflow-hidden">
+                <div className="px-3 py-2 border-b border-white/[0.06]">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Original</span>
+                </div>
+                <div className="aspect-[3/2] bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center">
+                  <div className="text-center">
+                    <Camera className="w-8 h-8 text-slate-700 mx-auto mb-2" />
+                    <p className="text-[10px] text-slate-600">{selectedPhoto.filename}</p>
+                    <p className="text-[10px] text-slate-700">{selectedPhoto.width}×{selectedPhoto.height}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-xl border border-indigo-500/20 bg-[#0c0c16] overflow-hidden">
+                <div className="px-3 py-2 border-b border-indigo-500/20 flex items-center justify-between">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400">AI Edited</span>
+                  <Sparkles className="w-3 h-3 text-indigo-400" />
+                </div>
+                <div className="aspect-[3/2] bg-gradient-to-br from-indigo-950/30 to-violet-950/20 flex items-center justify-center">
+                  <div className="text-center">
+                    <Wand2 className="w-8 h-8 text-indigo-700 mx-auto mb-2" />
+                    <p className="text-[10px] text-indigo-400/60">AI Enhanced</p>
+                    <p className="text-[10px] text-indigo-500/40">Style applied + retouched</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* AI Adjustments */}
+            <div className="rounded-xl border border-white/[0.06] bg-[#0c0c16] p-4">
+              <h4 className="text-xs font-semibold text-white mb-3 flex items-center gap-2">
+                <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />AI Adjustments Applied
+              </h4>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {Object.entries(selectedPhoto.ai_edits).map(([key, val]) => (
+                  <div key={key} className="px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                    <span className="text-[10px] text-slate-500 capitalize">{key.replace('_', ' ')}</span>
+                    <p className="text-xs text-white font-medium mt-0.5">{String(val)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Prompt edits history */}
+            {selectedPhoto.prompt_edits.length > 0 && (
+              <div className="rounded-xl border border-white/[0.06] bg-[#0c0c16] p-4">
+                <h4 className="text-xs font-semibold text-white mb-3 flex items-center gap-2">
+                  <MessageSquare className="w-3.5 h-3.5 text-slate-500" />Prompt Edits
+                </h4>
+                <div className="space-y-2">
+                  {selectedPhoto.prompt_edits.map((edit, i) => (
+                    <div key={i} className="flex items-start gap-2 text-xs">
+                      <div className="px-2 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 flex-1">{edit.prompt}</div>
+                      <span className="text-emerald-400 text-[10px] mt-1">✓ Applied</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right panel */}
+          <div className="space-y-4">
+            {/* Prompt editor */}
+            <div className="rounded-xl border border-white/[0.06] bg-[#0c0c16] p-4">
+              <h4 className="text-xs font-semibold text-white mb-3 flex items-center gap-2">
+                <MessageSquare className="w-3.5 h-3.5 text-indigo-400" />Prompt Editor
+              </h4>
+              <p className="text-[11px] text-slate-500 mb-3">Describe what you want changed. The AI will interpret and apply non-destructively.</p>
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="e.g. Remove person in background..."
+                    value={promptText}
+                    onChange={(e) => setPromptText(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handlePromptSubmit()}
+                    className="flex-1 px-3 py-2 text-xs bg-white/[0.04] border border-white/[0.08] rounded-lg text-slate-300 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20"
+                  />
+                  <Button size="sm" onClick={handlePromptSubmit} disabled={!promptText.trim()}>
+                    <Send className="w-3 h-3" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {['Remove background people', 'Make sky more blue', 'Smooth skin more', 'Straighten horizon', 'Remove power lines'].map((s) => (
+                    <button key={s} onClick={() => setPromptText(s)} className="px-2 py-1 text-[10px] rounded-full bg-white/[0.04] border border-white/[0.06] text-slate-500 hover:text-slate-300 hover:border-white/[0.1] transition-all">
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Photo metadata */}
+            <div className="rounded-xl border border-white/[0.06] bg-[#0c0c16] p-4">
+              <h4 className="text-xs font-semibold text-white mb-3">Details</h4>
+              <div className="space-y-2 text-xs">
+                {[
+                  ['Scene', selectedPhoto.scene_type || 'Unknown'],
+                  ['Faces detected', String(selectedPhoto.face_data.length)],
+                  ['Quality score', selectedPhoto.quality_score],
+                  ['AI confidence', selectedPhoto.edit_confidence],
+                  ['File size', `${((selectedPhoto.file_size || 0) / 1024 / 1024).toFixed(1)} MB`],
+                  ['ISO', (selectedPhoto.exif_data as any)?.iso],
+                  ['Aperture', (selectedPhoto.exif_data as any)?.aperture],
+                  ['Shutter', (selectedPhoto.exif_data as any)?.shutter],
+                ].filter(([, v]) => v !== undefined).map(([label, val]) => (
+                  <div key={String(label)} className="flex justify-between">
+                    <span className="text-slate-500 capitalize">{label}</span>
+                    <span className={`${
+                      label === 'Quality score' ? ((Number(val) || 0) >= 80 ? 'text-emerald-400 font-medium' : 'text-amber-400 font-medium')
+                        : label === 'AI confidence' ? ((Number(val) || 0) >= 85 ? 'text-emerald-400 font-medium' : 'text-amber-400 font-medium')
+                        : 'text-slate-300'
+                    }`}>
+                      {label === 'Quality score' ? `${val}/100` : label === 'AI confidence' ? `${val}%` : String(val)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Navigation */}
+            <div className="flex gap-2">
+              <Button variant="secondary" size="sm" className="flex-1" disabled={idx <= 0} onClick={() => idx > 0 && setSelectedPhoto(filtered[idx - 1])}>
+                ← Previous
+              </Button>
+              <Button variant="secondary" size="sm" className="flex-1" disabled={idx >= filtered.length - 1} onClick={() => idx < filtered.length - 1 && setSelectedPhoto(filtered[idx + 1])}>
+                Next →
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ====== Grid view ======
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button onClick={onBack} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-slate-400 hover:text-white transition-all">
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <div>
+            <h2 className="text-lg font-bold text-white">{processingJob.gallery?.title || 'Review Gallery'}</h2>
+            <p className="text-xs text-slate-500">{clientName} · {stats.total} images · {stats.approved} approved</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {selectMode ? (
+            <>
+              <span className="text-xs text-slate-400">{selectedIds.size} selected</span>
+              <Button variant="ghost" size="sm" onClick={() => { setSelectMode(false); setSelectedIds(new Set()); }}>Cancel</Button>
+              <Button size="sm" onClick={handleBulkApprove} disabled={selectedIds.size === 0}>
+                <Check className="w-3 h-3" />Approve Selected
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="secondary" size="sm" onClick={() => setSelectMode(true)}>
+                <CheckCircle2 className="w-3 h-3" />Select
+              </Button>
+              <Button size="sm" onClick={handleBulkApprove}>
+                <Check className="w-3 h-3" />Approve All Visible
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Stats bar */}
+      <div className="flex items-center gap-4 text-xs flex-wrap">
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06]">
+          <div className="w-2 h-2 rounded-full bg-indigo-500" />
+          <span className="text-slate-400">Edited:</span>
+          <span className="text-white font-medium">{stats.edited}</span>
+        </div>
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06]">
+          <div className="w-2 h-2 rounded-full bg-emerald-500" />
+          <span className="text-slate-400">Approved:</span>
+          <span className="text-white font-medium">{stats.approved}</span>
+        </div>
+        {stats.needsReview > 0 && (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <AlertCircle className="w-3 h-3 text-amber-400" />
+            <span className="text-amber-400">{stats.needsReview} need review</span>
+          </div>
+        )}
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06]">
+          <span className="text-slate-500">Culled:</span>
+          <span className="text-slate-400">{stats.culled}</span>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-1.5">
+          <Filter className="w-3 h-3 text-slate-500" />
+          <span className="text-xs text-slate-500">Section:</span>
+          <select value={filterSection} onChange={(e) => setFilterSection(e.target.value)} className="text-xs bg-white/[0.04] border border-white/[0.08] rounded-lg px-2 py-1 text-slate-300 focus:outline-none focus:border-indigo-500/50">
+            {sections.map((s) => (
+              <option key={s} value={s}>{s === 'all' ? 'All sections' : s.charAt(0).toUpperCase() + s.slice(1).replace('-', ' ')}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-slate-500">Status:</span>
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="text-xs bg-white/[0.04] border border-white/[0.08] rounded-lg px-2 py-1 text-slate-300 focus:outline-none focus:border-indigo-500/50">
+            <option value="all">All statuses</option>
+            <option value="edited">Edited</option>
+            <option value="approved">Approved</option>
+          </select>
+        </div>
+        <span className="text-xs text-slate-600">{filtered.length} images</span>
+      </div>
+
+      {/* Photo grid */}
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2">
+        {filtered.map((photo) => {
+          const isSelected = selectedIds.has(photo.id);
+          return (
+            <div
+              key={photo.id}
+              onClick={() => selectMode ? toggleSelect(photo.id) : setSelectedPhoto(photo)}
+              className={`relative aspect-square rounded-lg overflow-hidden cursor-pointer group transition-all ${
+                isSelected ? 'ring-2 ring-indigo-500 ring-offset-1 ring-offset-[#07070d]' : 'hover:ring-1 hover:ring-white/20'
+              }`}
+            >
+              <div className={`w-full h-full flex items-center justify-center ${
+                photo.status === 'approved' ? 'bg-gradient-to-br from-emerald-950/30 to-emerald-900/10'
+                  : photo.needs_review ? 'bg-gradient-to-br from-amber-950/30 to-amber-900/10'
+                  : 'bg-gradient-to-br from-slate-900 to-slate-800'
+              }`}>
+                <Camera className={`w-5 h-5 ${
+                  photo.status === 'approved' ? 'text-emerald-800' : photo.needs_review ? 'text-amber-800' : 'text-slate-700'
+                }`} />
+              </div>
+
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between">
+                  <span className="text-[9px] text-white/80 truncate">{photo.filename}</span>
+                  <span className={`text-[9px] font-medium ${(photo.quality_score || 0) >= 80 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                    {photo.quality_score}
+                  </span>
+                </div>
+              </div>
+
+              {photo.status === 'approved' && (
+                <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center">
+                  <Check className="w-2.5 h-2.5 text-white" />
+                </div>
+              )}
+              {photo.needs_review && photo.status !== 'approved' && (
+                <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center">
+                  <AlertCircle className="w-2.5 h-2.5 text-white" />
+                </div>
+              )}
+              {selectMode && isSelected && (
+                <div className="absolute top-1 left-1 w-4 h-4 rounded-full bg-indigo-500 flex items-center justify-center">
+                  <Check className="w-2.5 h-2.5 text-white" />
+                </div>
+              )}
+              {photo.is_sneak_peek && !selectMode && (
+                <div className="absolute top-1 left-1">
+                  <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

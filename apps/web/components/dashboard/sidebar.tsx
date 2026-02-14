@@ -30,8 +30,8 @@ const navGroups = [
   {
     label: 'Studio',
     items: [
+      { name: 'Auto Editing', href: '/editing', icon: Wand2 },
       { name: 'Galleries', href: '/galleries', icon: ImageIcon },
-      { name: 'AI Editing', href: '/editing', icon: Wand2 },
     ],
   },
   {

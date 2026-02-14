@@ -11,6 +11,7 @@ const statusColors: Record<string, string> = {
   upcoming: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
   in_progress: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
   editing: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+  ready_for_review: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
   delivered: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
   completed: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
   canceled: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
@@ -48,6 +49,7 @@ const statusColors: Record<string, string> = {
 const statusLabels: Record<string, string> = {
   in_progress: 'In Progress',
   partially_paid: 'Partially Paid',
+  ready_for_review: 'Ready for Review',
 };
 
 interface StatusBadgeProps {
