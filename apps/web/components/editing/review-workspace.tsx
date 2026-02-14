@@ -442,29 +442,31 @@ export function ReviewWorkspace({ processingJob, onBack }: { processingJob: Proc
           </div>
         </div>
       ) : approvedCount > 0 && !selectMode && (
-        <div className="sticky bottom-0 -mx-1 px-1 pb-1 pt-3 bg-gradient-to-t from-[#07070d] via-[#07070d] to-transparent">
-          <div className="rounded-xl border border-indigo-500/20 bg-[#0c0c16] p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center flex-shrink-0">
-                <ImageIcon className="w-5 h-5 text-indigo-400" />
+        <div className="fixed bottom-0 left-0 right-0 z-40 px-4 lg:pl-[264px] pb-4 pt-3 bg-gradient-to-t from-[#0a0a0f] via-[#0a0a0f]/95 to-transparent pointer-events-none">
+          <div className="max-w-full pointer-events-auto">
+            <div className="rounded-xl border border-indigo-500/20 bg-[#0c0c16] p-4 flex items-center justify-between shadow-2xl shadow-black/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center flex-shrink-0">
+                  <ImageIcon className="w-5 h-5 text-indigo-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-white">
+                    {approvedCount} photo{approvedCount !== 1 ? 's' : ''} approved
+                    {stats.edited > 0 && <span className="text-slate-500"> · {stats.edited} still unreviewed</span>}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    This will create the client gallery, send the delivery email, and start all post-delivery automations
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium text-white">
-                  {approvedCount} photo{approvedCount !== 1 ? 's' : ''} approved
-                  {stats.edited > 0 && <span className="text-slate-500"> · {stats.edited} still unreviewed</span>}
-                </p>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  This will create the client gallery, send the delivery email, and start all post-delivery automations
-                </p>
-              </div>
+              <Button size="sm" onClick={handleSendToGallery} disabled={sendingToGallery} className="flex-shrink-0">
+                {sendingToGallery ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" />Sending...</>
+                ) : (
+                  <><Share2 className="w-3.5 h-3.5" />Approve &amp; Send to Gallery</>
+                )}
+              </Button>
             </div>
-            <Button size="sm" onClick={handleSendToGallery} disabled={sendingToGallery} className="flex-shrink-0">
-              {sendingToGallery ? (
-                <><Loader2 className="w-3.5 h-3.5 animate-spin" />Sending...</>
-              ) : (
-                <><Share2 className="w-3.5 h-3.5" />Approve &amp; Send to Gallery</>
-              )}
-            </Button>
           </div>
         </div>
       )}
