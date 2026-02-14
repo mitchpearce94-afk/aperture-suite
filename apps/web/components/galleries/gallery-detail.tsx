@@ -321,7 +321,7 @@ export function GalleryDetail({ gallery: initialGallery, onBack, onUpdate }: Gal
         </div>
       )}
 
-      {/* Sticky deliver bar */}
+      {/* Sticky bottom bar */}
       {gallery.status === 'ready' && (
         <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#0a0a14]/95 backdrop-blur-md border-t border-white/[0.06]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
@@ -359,7 +359,29 @@ export function GalleryDetail({ gallery: initialGallery, onBack, onUpdate }: Gal
         </div>
       )}
 
-      {gallery.status === 'ready' && <div className="h-16" />}
+      {gallery.status === 'delivered' && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#0a0a14]/95 backdrop-blur-md border-t border-white/[0.06]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                <Check className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-emerald-400">Delivered</p>
+                <p className="text-[11px] text-slate-500">
+                  {photos.length} photos · {gallery.view_count} view{gallery.view_count !== 1 ? 's' : ''}
+                  {gallery.expires_at ? ` · expires ${formatDate(gallery.expires_at, 'short')}` : ''}
+                </p>
+              </div>
+            </div>
+            <Button size="sm" variant="secondary" onClick={() => window.open(galleryUrl, '_blank')}>
+              <ExternalLink className="w-3 h-3" />View as Client
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {(gallery.status === 'ready' || gallery.status === 'delivered') && <div className="h-16" />}
     </div>
   );
 }

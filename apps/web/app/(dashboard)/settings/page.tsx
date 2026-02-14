@@ -693,7 +693,8 @@ export default function SettingsPage() {
                   <div>
                     <label className="block text-[11px] text-slate-500 mb-1">Default Expiry</label>
                     <select value={brandForm.gallery_default_expiry_days} onChange={(e) => setBrandForm({ ...brandForm, gallery_default_expiry_days: Number(e.target.value) })}
-                      className="w-full text-xs bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-indigo-500/50">
+                      className="w-full text-xs bg-[#12121e] border border-white/[0.08] rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-indigo-500/50"
+                      style={{ colorScheme: 'dark' }}>
                       <option value={7}>7 days</option>
                       <option value={14}>14 days</option>
                       <option value={21}>21 days</option>

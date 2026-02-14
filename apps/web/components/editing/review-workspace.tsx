@@ -22,6 +22,7 @@ export function ReviewWorkspace({ processingJob, onBack }: { processingJob: Proc
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sendingToGallery, setSendingToGallery] = useState(false);
   const [sentToGallery, setSentToGallery] = useState(false);
+  const [autoDeliver, setAutoDeliver] = useState(false);
 
   useEffect(() => {
     const mockPhotos = generateMockPhotos();
@@ -91,9 +92,10 @@ export function ReviewWorkspace({ processingJob, onBack }: { processingJob: Proc
 
     // Simulate the process — in production this would:
     // 1. Update all approved photos status to 'delivered'
-    // 2. Update the gallery status to 'ready' 
+    // 2. Update the gallery status to 'ready' (or 'delivered' if autoDeliver is on)
     // 3. Update the job status to 'delivered'
-    // 4. Trigger the delivery automation (gallery link, email to client, etc.)
+    // 4. If autoDeliver: send gallery email to client immediately
+    // 5. If !autoDeliver: gallery goes to 'ready' status for manual review/deliver
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
     setPhotos((prev) => prev.map((p) =>
@@ -420,15 +422,20 @@ export function ReviewWorkspace({ processingJob, onBack }: { processingJob: Proc
 
       {/* Send to Gallery */}
       {sentToGallery ? (
-        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-5">
+        <div className={`rounded-xl border p-5 ${autoDeliver ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-indigo-500/20 bg-indigo-500/5'}`}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
-              <Check className="w-5 h-5 text-emerald-400" />
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${autoDeliver ? 'bg-emerald-500/20' : 'bg-indigo-500/20'}`}>
+              <Check className={`w-5 h-5 ${autoDeliver ? 'text-emerald-400' : 'text-indigo-400'}`} />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-semibold text-emerald-300">Sent to Gallery</p>
-              <p className="text-xs text-emerald-400/70 mt-0.5">
-                {approvedCount} photos have been sent to the client gallery. The delivery email and all post-delivery automations have been triggered.
+              <p className={`text-sm font-semibold ${autoDeliver ? 'text-emerald-300' : 'text-indigo-300'}`}>
+                {autoDeliver ? 'Delivered to Client' : 'Sent to Gallery'}
+              </p>
+              <p className={`text-xs mt-0.5 ${autoDeliver ? 'text-emerald-400/70' : 'text-indigo-400/70'}`}>
+                {autoDeliver
+                  ? `${approvedCount} photos have been delivered to the client. The gallery email and all post-delivery automations have been triggered.`
+                  : `${approvedCount} photos are ready in the gallery. Head to Galleries to review and deliver to the client.`
+                }
               </p>
             </div>
             <Button variant="secondary" size="sm" onClick={onBack}>
@@ -450,17 +457,34 @@ export function ReviewWorkspace({ processingJob, onBack }: { processingJob: Proc
                     {stats.edited > 0 && <span className="text-slate-500"> · {stats.edited} unreviewed</span>}
                   </p>
                   <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 hidden sm:block">
-                    This will create the client gallery, send the delivery email, and start all post-delivery automations
+                    {autoDeliver
+                      ? 'Gallery will be created and delivered to the client immediately'
+                      : 'Gallery will be created in "Ready" status — deliver manually from Galleries page'
+                    }
                   </p>
                 </div>
               </div>
-              <Button size="sm" onClick={handleSendToGallery} disabled={sendingToGallery} className="flex-shrink-0 w-full sm:w-auto">
-                {sendingToGallery ? (
-                  <><Loader2 className="w-3.5 h-3.5 animate-spin" />Sending...</>
-                ) : (
-                  <><Share2 className="w-3.5 h-3.5" />Send to Gallery</>
-                )}
-              </Button>
+              <div className="flex items-center gap-3 flex-shrink-0 w-full sm:w-auto">
+                {/* Auto-deliver checkbox */}
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <button
+                    onClick={() => setAutoDeliver(!autoDeliver)}
+                    className={`w-8 h-[18px] rounded-full relative transition-colors ${autoDeliver ? 'bg-emerald-500' : 'bg-white/[0.08]'}`}
+                  >
+                    <div className={`absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white shadow-sm transition-all ${autoDeliver ? 'left-[15px]' : 'left-[2px]'}`} />
+                  </button>
+                  <span className={`text-[11px] whitespace-nowrap ${autoDeliver ? 'text-emerald-400' : 'text-slate-500'}`}>Auto-deliver</span>
+                </label>
+                <Button size="sm" onClick={handleSendToGallery} disabled={sendingToGallery} className="flex-shrink-0 w-full sm:w-auto">
+                  {sendingToGallery ? (
+                    <><Loader2 className="w-3.5 h-3.5 animate-spin" />Sending...</>
+                  ) : autoDeliver ? (
+                    <><Share2 className="w-3.5 h-3.5" />Send &amp; Deliver</>
+                  ) : (
+                    <><Share2 className="w-3.5 h-3.5" />Send to Gallery</>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
