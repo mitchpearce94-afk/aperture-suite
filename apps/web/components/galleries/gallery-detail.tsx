@@ -49,7 +49,7 @@ export function GalleryDetail({ gallery, onBack }: GalleryDetailProps) {
   const favoriteCount = photos.filter((p) => p.is_favorite).length;
   const sneakPeekCount = photos.filter((p) => p.is_sneak_peek).length;
 
-  const accessIcon = gallery.access_type === 'password' ? Lock
+  const AccessIcon = gallery.access_type === 'password' ? Lock
     : gallery.access_type === 'email' ? Mail
     : gallery.access_type === 'public' ? Globe
     : Lock;
@@ -125,7 +125,7 @@ export function GalleryDetail({ gallery, onBack }: GalleryDetailProps) {
         <div className="rounded-xl border border-white/[0.06] bg-[#0c0c16] p-3 sm:p-4">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center flex-shrink-0">
-              <accessIcon className="w-4 h-4 text-indigo-400" />
+              <AccessIcon className="w-4 h-4 text-indigo-400" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[11px] text-slate-500 mb-0.5">Gallery Link</p>
@@ -138,7 +138,7 @@ export function GalleryDetail({ gallery, onBack }: GalleryDetailProps) {
           </div>
           <div className="flex items-center gap-3 mt-2 text-[10px] text-slate-500">
             <span className="flex items-center gap-1 capitalize">
-              <accessIcon className="w-2.5 h-2.5" />{gallery.access_type} access
+              <AccessIcon className="w-2.5 h-2.5" />{gallery.access_type} access
             </span>
             {gallery.expires_at && (
               <span className="flex items-center gap-1">
