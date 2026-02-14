@@ -288,24 +288,28 @@ export function ReviewWorkspace({ processingJob, onBack }: { processingJob: Proc
 
   // ====== Grid view ======
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button onClick={onBack} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-slate-400 hover:text-white transition-all">
+    <div className="space-y-3 sm:space-y-4">
+      {/* Header */}
+      <div className="space-y-3">
+        <div className="flex items-start gap-3">
+          <button onClick={onBack} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-slate-400 hover:text-white transition-all mt-0.5">
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <div>
-            <h2 className="text-lg font-bold text-white">{processingJob.gallery?.title || 'Review Gallery'}</h2>
-            <p className="text-xs text-slate-500">{clientName} · {stats.total} images · {stats.approved} approved</p>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-base sm:text-lg font-bold text-white leading-tight truncate">{processingJob.gallery?.title || 'Review Gallery'}</h2>
+            <p className="text-xs text-slate-500 mt-0.5">{clientName} · {stats.total} images</p>
           </div>
         </div>
+
+        {/* Actions row */}
         <div className="flex items-center gap-2">
           {selectMode ? (
             <>
               <span className="text-xs text-slate-400">{selectedIds.size} selected</span>
+              <div className="flex-1" />
               <Button variant="ghost" size="sm" onClick={() => { setSelectMode(false); setSelectedIds(new Set()); }}>Cancel</Button>
               <Button size="sm" onClick={handleBulkApprove} disabled={selectedIds.size === 0}>
-                <Check className="w-3 h-3" />Approve Selected
+                <Check className="w-3 h-3" />Approve
               </Button>
             </>
           ) : (
@@ -314,57 +318,48 @@ export function ReviewWorkspace({ processingJob, onBack }: { processingJob: Proc
                 <CheckCircle2 className="w-3 h-3" />Select
               </Button>
               <Button size="sm" onClick={handleBulkApprove}>
-                <Check className="w-3 h-3" />Approve All Visible
+                <Check className="w-3 h-3" /><span className="hidden sm:inline">Approve All Visible</span><span className="sm:hidden">Approve All</span>
               </Button>
             </>
           )}
         </div>
       </div>
 
-      {/* Stats bar */}
-      <div className="flex items-center gap-4 text-xs flex-wrap">
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06]">
-          <div className="w-2 h-2 rounded-full bg-indigo-500" />
-          <span className="text-slate-400">Edited:</span>
-          <span className="text-white font-medium">{stats.edited}</span>
+      {/* Stats + Filters combined row */}
+      <div className="flex items-center gap-2 flex-wrap text-[11px]">
+        <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-white/[0.04] border border-white/[0.06]">
+          <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+          <span className="text-slate-400">{stats.edited}</span>
         </div>
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06]">
-          <div className="w-2 h-2 rounded-full bg-emerald-500" />
-          <span className="text-slate-400">Approved:</span>
-          <span className="text-white font-medium">{stats.approved}</span>
+        <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-white/[0.04] border border-white/[0.06]">
+          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+          <span className="text-slate-400">{stats.approved}</span>
         </div>
         {stats.needsReview > 0 && (
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
-            <AlertCircle className="w-3 h-3 text-amber-400" />
-            <span className="text-amber-400">{stats.needsReview} need review</span>
+          <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-500/10 border border-amber-500/20">
+            <AlertCircle className="w-2.5 h-2.5 text-amber-400" />
+            <span className="text-amber-400">{stats.needsReview}</span>
           </div>
         )}
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06]">
-          <span className="text-slate-500">Culled:</span>
-          <span className="text-slate-400">{stats.culled}</span>
-        </div>
-      </div>
+        {stats.culled > 0 && (
+          <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-white/[0.04] border border-white/[0.06]">
+            <X className="w-2.5 h-2.5 text-slate-600" />
+            <span className="text-slate-500">{stats.culled}</span>
+          </div>
+        )}
 
-      {/* Filters */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-1.5">
-          <Filter className="w-3 h-3 text-slate-500" />
-          <span className="text-xs text-slate-500">Section:</span>
-          <select value={filterSection} onChange={(e) => setFilterSection(e.target.value)} className="text-xs bg-white/[0.04] border border-white/[0.08] rounded-lg px-2 py-1 text-slate-300 focus:outline-none focus:border-indigo-500/50">
-            {sections.map((s) => (
-              <option key={s} value={s}>{s === 'all' ? 'All sections' : s.charAt(0).toUpperCase() + s.slice(1).replace('-', ' ')}</option>
-            ))}
-          </select>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-slate-500">Status:</span>
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="text-xs bg-white/[0.04] border border-white/[0.08] rounded-lg px-2 py-1 text-slate-300 focus:outline-none focus:border-indigo-500/50">
-            <option value="all">All statuses</option>
-            <option value="edited">Edited</option>
-            <option value="approved">Approved</option>
-          </select>
-        </div>
-        <span className="text-xs text-slate-600">{filtered.length} images</span>
+        <div className="flex-1" />
+
+        <select value={filterSection} onChange={(e) => setFilterSection(e.target.value)} className="text-[11px] bg-white/[0.04] border border-white/[0.08] rounded-lg px-2 py-1 text-slate-300 focus:outline-none focus:border-indigo-500/50">
+          {sections.map((s) => (
+            <option key={s} value={s}>{s === 'all' ? 'All sections' : s.charAt(0).toUpperCase() + s.slice(1).replace('-', ' ')}</option>
+          ))}
+        </select>
+        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="text-[11px] bg-white/[0.04] border border-white/[0.08] rounded-lg px-2 py-1 text-slate-300 focus:outline-none focus:border-indigo-500/50">
+          <option value="all">All</option>
+          <option value="edited">Edited</option>
+          <option value="approved">Approved</option>
+        </select>
       </div>
 
       {/* Photo grid */}
