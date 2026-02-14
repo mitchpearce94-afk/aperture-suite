@@ -363,7 +363,7 @@ export function ReviewWorkspace({ processingJob, onBack }: { processingJob: Proc
       </div>
 
       {/* Photo grid */}
-      <div className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2 ${approvedCount > 0 && !selectMode && !sentToGallery ? 'pb-24' : ''}`}>
+      <div className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2 ${approvedCount > 0 && !selectMode && !sentToGallery ? 'pb-36 sm:pb-24' : ''}`}>
         {filtered.map((photo) => {
           const isSelected = selectedIds.has(photo.id);
           return (
