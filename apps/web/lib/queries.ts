@@ -1316,9 +1316,9 @@ export async function hydratePhotoUrls(photos: Photo[]): Promise<PhotoWithUrls[]
   for (let i = 0; i < allKeys.length; i += BATCH_SIZE) {
     const batch = allKeys.slice(i, i + BATCH_SIZE);
     const batchUrls = await getSignedUrls(batch);
-    for (const [k, v] of batchUrls) {
+    batchUrls.forEach((v, k) => {
       urlMap.set(k, v);
-    }
+    });
   }
 
   // Map URLs back to photos
