@@ -1350,7 +1350,15 @@ function EditingStyleSection({ photographerId }: { photographerId?: string }) {
             </div>
           ) : (
             <div className="p-3" onClick={(e) => e.stopPropagation()}>
-              <div className="grid grid-cols-8 sm:grid-cols-10 gap-1 max-h-40 overflow-y-auto">
+              {uploading && (
+                <div className="flex items-center gap-2 mb-2 px-1">
+                  <Loader2 className="w-3 h-3 text-indigo-400 animate-spin" />
+                  <p className="text-xs text-slate-400">
+                    Uploading {files.filter((f) => f.status === 'complete').length} / {files.length} images ({uploadProgress}%)
+                  </p>
+                </div>
+              )}
+              <div className="grid grid-cols-8 sm:grid-cols-10 gap-1 max-h-72 overflow-y-auto pr-1">
                 {files.map((f) => (
                   <div key={f.id} className="relative aspect-square rounded bg-white/[0.04] flex items-center justify-center group">
                     <Camera className={`w-3 h-3 ${
