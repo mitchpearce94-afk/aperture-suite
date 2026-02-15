@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { createClient as createSupabaseClient } from '@/lib/supabase/client';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Calendar, Clock, MapPin, Check, Loader2, Camera } from 'lucide-react';
@@ -35,8 +36,8 @@ interface Photographer {
   brand_settings: any;
 }
 
-export default function PublicBookingPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = use(params);
+export default function PublicBookingPage() {
+  const { slug } = useParams() as { slug: string };
   const [event, setEvent] = useState<BookingEvent | null>(null);
   const [photographer, setPhotographer] = useState<Photographer | null>(null);
   const [slots, setSlots] = useState<BookingSlot[]>([]);
