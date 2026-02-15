@@ -59,7 +59,6 @@ export default function EditingPage() {
         const fresh = await getProcessingJobs();
         if (fresh.length > 0) {
           setProcessingJobs(fresh as ProcessingJobWithGallery[]);
-          setUseMockData(false);
 
           // Stop polling if no more active jobs
           const stillActive = fresh.some(
