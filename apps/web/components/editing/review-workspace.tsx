@@ -174,8 +174,8 @@ export function ReviewWorkspace({ processingJob, onBack }: { processingJob: Proc
         await sb.from('jobs').update({ status: newJobStatus }).eq('id', galleryData.job_id);
       }
 
-      // 4. Update processing job status
-      await sb.from('processing_jobs').update({ status: 'completed' }).eq('id', processingJob.id);
+      // 4. Update processing job status to 'delivered' (removes from review queue)
+      await sb.from('processing_jobs').update({ status: 'delivered' }).eq('id', processingJob.id);
 
       // 5. If autoDeliver, trigger gallery delivery email
       if (autoDeliver) {
@@ -214,6 +214,11 @@ export function ReviewWorkspace({ processingJob, onBack }: { processingJob: Proc
 
     setSendingToGallery(false);
     setSentToGallery(true);
+
+    // Return to editing page after 2 seconds
+    setTimeout(() => {
+      onBack();
+    }, 2000);
   };
 
   const approvedCount = photos.filter((p) => p.status === 'approved').length;

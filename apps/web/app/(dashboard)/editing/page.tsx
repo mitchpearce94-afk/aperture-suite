@@ -127,7 +127,7 @@ export default function EditingPage() {
   }
 
   if (reviewingJob) {
-    return <ReviewWorkspace processingJob={reviewingJob} onBack={() => setReviewingJob(null)} />;
+    return <ReviewWorkspace processingJob={reviewingJob} onBack={() => { setReviewingJob(null); loadData(); }} />;
   }
 
   const queuedCount = processingJobs.filter((j) => j.status === 'queued' || j.status === 'processing').length;

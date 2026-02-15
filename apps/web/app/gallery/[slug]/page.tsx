@@ -95,7 +95,22 @@ function Lightbox({ photo, photos, onClose, onPrev, onNext, onToggleFav, canDown
             <Heart className={`w-5 h-5 ${photo.is_favorite ? 'text-pink-400 fill-pink-400' : 'text-white/50 hover:text-white/80'}`} />
           </button>
           {canDownload && (
-            <button className="p-2.5 rounded-lg hover:bg-white/10 transition-colors text-white/50 hover:text-white/80" title="Download">
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch(`/api/gallery-photos?action=download&gallery_id=${photo.gallery_id}&photo_id=${photo.id}&resolution=web`);
+                  const data = await res.json();
+                  if (data.url) {
+                    const a = document.createElement('a');
+                    a.href = data.url;
+                    a.download = photo.filename || 'photo.jpg';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                  }
+                } catch {}
+              }}
+              className="p-2.5 rounded-lg hover:bg-white/10 transition-colors text-white/50 hover:text-white/80" title="Download">
               <Download className="w-5 h-5" />
             </button>
           )}
@@ -113,8 +128,8 @@ function Lightbox({ photo, photos, onClose, onPrev, onNext, onToggleFav, canDown
       <div className="flex-1 flex items-center justify-center relative">
         <button onClick={onPrev} className="absolute left-2 sm:left-6 p-3 text-white/20 hover:text-white/80 transition-colors"><ChevronLeft className="w-8 h-8" /></button>
         <div className="max-w-[92vw] max-h-[82vh] flex items-center justify-center">
-          {(photo as any).preview_url ? (
-            <img src={(photo as any).preview_url.replace('/800/533', '/1200/800')} alt={photo.filename} className="max-w-full max-h-[82vh] rounded object-contain" />
+          {(photo as any).web_url || (photo as any).thumb_url ? (
+            <img src={(photo as any).web_url || (photo as any).thumb_url} alt={photo.filename} className="max-w-full max-h-[82vh] rounded object-contain" />
           ) : (
             <div className="w-[800px] max-w-full aspect-[3/2] bg-gray-900 rounded flex items-center justify-center">
               <Camera className="w-12 h-12 text-gray-700" />
@@ -210,7 +225,23 @@ export default function PublicGalleryPage() {
       if (brandData) setBrand(brandData);
       const { data: photoData } = await sb.from('photos').select('*').eq('gallery_id', g.id)
         .in('status', ['edited', 'approved', 'delivered']).order('sort_order', { ascending: true });
-      setPhotos(photoData || []);
+      
+      // Load signed URLs via server-side API (client can't sign storage URLs)
+      if (photoData && photoData.length > 0) {
+        try {
+          const urlRes = await fetch(`/api/gallery-photos?gallery_id=${g.id}`);
+          const urlData = await urlRes.json();
+          if (urlRes.ok && urlData.photos) {
+            setPhotos(urlData.photos);
+          } else {
+            setPhotos(photoData);
+          }
+        } catch {
+          setPhotos(photoData);
+        }
+      } else {
+        setPhotos(photoData || []);
+      }
       try { await sb.rpc('increment_gallery_views', { gallery_id: g.id }); } catch {}
     } catch { setError('Something went wrong loading this gallery.'); }
     setLoading(false);
@@ -408,8 +439,8 @@ export default function PublicGalleryPage() {
             {displayPhotos.map(photo => (
               <div key={photo.id} className="relative group cursor-pointer" onClick={() => setLightboxPhoto(photo)}>
                 <div className={`${gridSize === 'large' ? 'aspect-[4/3]' : 'aspect-square'} rounded-lg overflow-hidden bg-gray-100`}>
-                  {(photo as any).preview_url ? (
-                    <img src={(photo as any).preview_url} alt={photo.filename} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" loading="lazy" />
+                  {(photo as any).thumb_url || (photo as any).web_url ? (
+                    <img src={(photo as any).thumb_url || (photo as any).web_url} alt={photo.filename} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" loading="lazy" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center"><Camera className="w-6 h-6 text-gray-300" /></div>
                   )}
