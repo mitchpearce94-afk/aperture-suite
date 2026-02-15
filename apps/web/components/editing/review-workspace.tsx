@@ -286,12 +286,33 @@ export function ReviewWorkspace({ processingJob, onBack }: { processingJob: Proc
                   <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />AI Adjustments Applied
                 </h4>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {Object.entries(selectedPhoto.ai_edits).map(([key, val]) => (
-                    <div key={key} className="px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04]">
-                      <span className="text-[10px] text-slate-500 capitalize">{key.replace(/_/g, ' ')}</span>
-                      <p className="text-xs text-white font-medium mt-0.5">{String(val)}</p>
-                    </div>
-                  ))}
+                  {Object.entries(selectedPhoto.ai_edits)
+                    .filter(([, val]) => val !== null && val !== undefined)
+                    .map(([key, val]) => {
+                      let displayVal: string;
+                      if (typeof val === 'boolean') {
+                        displayVal = val ? 'Yes' : 'No';
+                      } else if (typeof val === 'object') {
+                        // Show summary for composition object
+                        const obj = val as Record<string, unknown>;
+                        if (obj.horizon_corrected || obj.crop_applied) {
+                          const parts: string[] = [];
+                          if (obj.horizon_corrected) parts.push(`Horizon ${Number(obj.horizon_angle || 0).toFixed(1)}°`);
+                          if (obj.crop_applied) parts.push('Cropped');
+                          displayVal = parts.join(', ') || 'None';
+                        } else {
+                          displayVal = 'Applied';
+                        }
+                      } else {
+                        displayVal = String(val);
+                      }
+                      return (
+                        <div key={key} className="px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                          <span className="text-[10px] text-slate-500 capitalize">{key.replace(/_/g, ' ')}</span>
+                          <p className="text-xs text-white font-medium mt-0.5">{displayVal}</p>
+                        </div>
+                      );
+                    })}
                 </div>
               </div>
             )}

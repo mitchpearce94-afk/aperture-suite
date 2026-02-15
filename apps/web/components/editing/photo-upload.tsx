@@ -79,7 +79,12 @@ export function PhotoUpload({ onUploadComplete }: PhotoUploadProps) {
         getStyleProfiles(),
       ]);
       setJobs(jobData);
-      setStyleProfiles(profileData.filter((p) => p.status === 'ready'));
+      const readyProfiles = profileData.filter((p) => p.status === 'ready');
+      setStyleProfiles(readyProfiles);
+      // Auto-select the first ready style profile
+      if (readyProfiles.length > 0 && !selectedStyleId) {
+        setSelectedStyleId(readyProfiles[0].id);
+      }
       setLoadingJobs(false);
     }
     load();

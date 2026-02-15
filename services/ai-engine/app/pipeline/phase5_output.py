@@ -180,9 +180,23 @@ def select_top_images(
 
 # ── Storage Key Helpers ──────────────────────────────────────
 
+import re
+
+
+def sanitize_filename(filename: str) -> str:
+    """Sanitize filename for safe storage paths — remove special characters."""
+    # Remove extension first
+    base = filename.rsplit(".", 1)[0] if "." in filename else filename
+    # Replace anything that's not alphanumeric, dash, underscore, or dot
+    safe = re.sub(r'[^a-zA-Z0-9._-]', '_', base)
+    # Collapse multiple underscores
+    safe = re.sub(r'_+', '_', safe).strip('_')
+    return safe or 'photo'
+
+
 def get_output_keys(photographer_id: str, gallery_id: str, filename: str) -> dict:
     """Generate storage keys for all output variants."""
-    base = filename.rsplit(".", 1)[0] if "." in filename else filename
+    base = sanitize_filename(filename)
     prefix = f"{photographer_id}/{gallery_id}"
 
     return {
