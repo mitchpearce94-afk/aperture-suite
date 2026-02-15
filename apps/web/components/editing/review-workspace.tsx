@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import type { Photo } from '@/lib/types';
+import { getPhotosWithUrls, updatePhoto, type PhotoWithUrls } from '@/lib/queries';
+import { createClient as createSupabaseClient } from '@/lib/supabase/client';
 import type { ProcessingJobWithGallery } from './mock-data';
 import { generateMockPhotos } from './mock-data';
 import {
@@ -11,10 +13,41 @@ import {
   AlertCircle, ImageIcon, Share2, Loader2,
 } from 'lucide-react';
 
+// ── Helper: render photo image (signed URL or placeholder) ────────
+function PhotoImage({ photo, size = 'thumb', className = '' }: {
+  photo: PhotoWithUrls;
+  size?: 'thumb' | 'web' | 'edited' | 'original';
+  className?: string;
+}) {
+  const url = size === 'thumb' ? (photo.thumb_url || photo.web_url)
+    : size === 'web' ? (photo.web_url || photo.edited_url || photo.thumb_url)
+    : size === 'edited' ? (photo.edited_url || photo.web_url)
+    : (photo.original_url || photo.web_url);
+
+  if (!url) {
+    return (
+      <div className={`w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 ${className}`}>
+        <Camera className="w-6 h-6 text-slate-700" />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={url}
+      alt={photo.filename}
+      className={`w-full h-full object-cover ${className}`}
+      loading="lazy"
+    />
+  );
+}
+
+// ── Main Component ────────────────────────────────────────────────
 export function ReviewWorkspace({ processingJob, onBack }: { processingJob: ProcessingJobWithGallery; onBack: () => void }) {
-  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [photos, setPhotos] = useState<PhotoWithUrls[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
+  const [useMockData, setUseMockData] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<PhotoWithUrls | null>(null);
   const [filterSection, setFilterSection] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [promptText, setPromptText] = useState('');
@@ -25,9 +58,24 @@ export function ReviewWorkspace({ processingJob, onBack }: { processingJob: Proc
   const [autoDeliver, setAutoDeliver] = useState(false);
 
   useEffect(() => {
-    const mockPhotos = generateMockPhotos();
-    setPhotos(mockPhotos);
-    setLoading(false);
+    async function loadPhotos() {
+      try {
+        if (!processingJob.gallery_id) throw new Error('No gallery_id');
+        const data = await getPhotosWithUrls(processingJob.gallery_id);
+        if (data.length > 0) {
+          setPhotos(data);
+          setUseMockData(false);
+        } else {
+          setPhotos(generateMockPhotos() as PhotoWithUrls[]);
+          setUseMockData(true);
+        }
+      } catch {
+        setPhotos(generateMockPhotos() as PhotoWithUrls[]);
+        setUseMockData(true);
+      }
+      setLoading(false);
+    }
+    loadPhotos();
   }, [processingJob.gallery_id]);
 
   const sections = ['all', ...Array.from(new Set(photos.map((p) => p.section).filter(Boolean)))] as string[];
@@ -47,36 +95,50 @@ export function ReviewWorkspace({ processingJob, onBack }: { processingJob: Proc
     culled: photos.filter((p) => p.is_culled).length,
   };
 
-  const handleApprove = (photoId: string) => {
+  const handleApprove = async (photoId: string) => {
     setPhotos((prev) => prev.map((p) => (p.id === photoId ? { ...p, status: 'approved' as const, needs_review: false } : p)));
     const idx = filtered.findIndex((p) => p.id === photoId);
     if (idx < filtered.length - 1) setSelectedPhoto(filtered[idx + 1]);
     else setSelectedPhoto(null);
+    if (!useMockData) {
+      await updatePhoto(photoId, { status: 'approved', needs_review: false });
+    }
   };
 
-  const handleReject = (photoId: string) => {
+  const handleReject = async (photoId: string) => {
     setPhotos((prev) => prev.map((p) => (p.id === photoId ? { ...p, is_culled: true } : p)));
     const idx = filtered.findIndex((p) => p.id === photoId);
     if (idx < filtered.length - 1) setSelectedPhoto(filtered[idx + 1]);
     else setSelectedPhoto(null);
+    if (!useMockData) {
+      await updatePhoto(photoId, { is_culled: true });
+    }
   };
 
-  const handleBulkApprove = () => {
-    if (selectedIds.size > 0) {
-      setPhotos((prev) => prev.map((p) => (selectedIds.has(p.id) ? { ...p, status: 'approved' as const, needs_review: false } : p)));
-    } else {
-      const visibleIds = new Set(filtered.map((p) => p.id));
-      setPhotos((prev) => prev.map((p) => (visibleIds.has(p.id) ? { ...p, status: 'approved' as const, needs_review: false } : p)));
-    }
+  const handleBulkApprove = async () => {
+    const targetIds = selectedIds.size > 0
+      ? selectedIds
+      : new Set(filtered.map((p) => p.id));
+
+    setPhotos((prev) => prev.map((p) => (targetIds.has(p.id) ? { ...p, status: 'approved' as const, needs_review: false } : p)));
     setSelectedIds(new Set());
     setSelectMode(false);
+
+    if (!useMockData) {
+      const sb = createSupabaseClient();
+      await sb
+        .from('photos')
+        .update({ status: 'approved', needs_review: false })
+        .in('id', Array.from(targetIds));
+    }
   };
 
   const handlePromptSubmit = () => {
     if (!promptText.trim() || !selectedPhoto) return;
     const edit = { prompt: promptText, result: 'Applied', timestamp: new Date().toISOString(), confidence: 92 };
-    setPhotos((prev) => prev.map((p) => p.id === selectedPhoto.id ? { ...p, prompt_edits: [...p.prompt_edits, edit] } : p));
+    setPhotos((prev) => prev.map((p) => p.id === selectedPhoto.id ? { ...p, prompt_edits: [...(p.prompt_edits || []), edit] } : p));
     setPromptText('');
+    // TODO: Send prompt to AI engine for per-image editing once GPU phases are built
   };
 
   const toggleSelect = (id: string) => {
@@ -90,13 +152,59 @@ export function ReviewWorkspace({ processingJob, onBack }: { processingJob: Proc
   const handleSendToGallery = async () => {
     setSendingToGallery(true);
 
-    // Simulate the process — in production this would:
-    // 1. Update all approved photos status to 'delivered'
-    // 2. Update the gallery status to 'ready' (or 'delivered' if autoDeliver is on)
-    // 3. Update the job status to 'delivered'
-    // 4. If autoDeliver: send gallery email to client immediately
-    // 5. If !autoDeliver: gallery goes to 'ready' status for manual review/deliver
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    if (!useMockData) {
+      const sb = createSupabaseClient();
+
+      // 1. Update all approved photos to 'delivered'
+      const approvedIds = photos.filter((p) => p.status === 'approved').map((p) => p.id);
+      if (approvedIds.length > 0) {
+        await sb.from('photos').update({ status: 'delivered' }).in('id', approvedIds);
+      }
+
+      // 2. Update gallery status
+      const newGalleryStatus = autoDeliver ? 'delivered' : 'ready';
+      await sb.from('galleries').update({ status: newGalleryStatus }).eq('id', processingJob.gallery_id);
+
+      // 3. Update job status via gallery's job_id
+      const { data: galleryData } = await sb.from('galleries').select('job_id').eq('id', processingJob.gallery_id).single();
+      if (galleryData?.job_id) {
+        const newJobStatus = autoDeliver ? 'delivered' : 'ready_for_review';
+        await sb.from('jobs').update({ status: newJobStatus }).eq('id', galleryData.job_id);
+      }
+
+      // 4. Update processing job status
+      await sb.from('processing_jobs').update({ status: 'completed' }).eq('id', processingJob.id);
+
+      // 5. If autoDeliver, trigger gallery delivery email
+      if (autoDeliver) {
+        try {
+          const { sendGalleryDeliveryEmail } = await import('@/lib/email');
+          const { getCurrentPhotographer } = await import('@/lib/queries');
+          const { data: galleryFull } = await sb
+            .from('galleries')
+            .select('*, client:clients(first_name, last_name, email)')
+            .eq('id', processingJob.gallery_id)
+            .single();
+          if (galleryFull?.client?.email) {
+            const photographer = await getCurrentPhotographer();
+            if (photographer) {
+              await sendGalleryDeliveryEmail({
+                clientName: `${galleryFull.client.first_name} ${galleryFull.client.last_name || ''}`.trim(),
+                clientEmail: galleryFull.client.email,
+                galleryTitle: galleryFull.title,
+                galleryUrl: `${window.location.origin}/gallery/${galleryFull.slug || galleryFull.id}`,
+                photographerName: photographer.business_name || photographer.name,
+                password: galleryFull.access_type === 'password' ? (galleryFull as any).password : undefined,
+              });
+            }
+          }
+        } catch (emailErr) {
+          console.error('Failed to send delivery email:', emailErr);
+        }
+      }
+    } else {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
 
     setPhotos((prev) => prev.map((p) =>
       p.status === 'approved' ? { ...p, status: 'delivered' as const } : p
@@ -107,7 +215,6 @@ export function ReviewWorkspace({ processingJob, onBack }: { processingJob: Proc
   };
 
   const approvedCount = photos.filter((p) => p.status === 'approved').length;
-  const allReviewed = stats.edited === 0 && stats.approved > 0;
 
   if (loading) {
     return (
@@ -157,12 +264,8 @@ export function ReviewWorkspace({ processingJob, onBack }: { processingJob: Proc
                 <div className="px-3 py-2 border-b border-white/[0.06]">
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Original</span>
                 </div>
-                <div className="aspect-[3/2] bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center">
-                  <div className="text-center">
-                    <Camera className="w-8 h-8 text-slate-700 mx-auto mb-2" />
-                    <p className="text-[10px] text-slate-600">{selectedPhoto.filename}</p>
-                    <p className="text-[10px] text-slate-700">{selectedPhoto.width}×{selectedPhoto.height}</p>
-                  </div>
+                <div className="aspect-[3/2] overflow-hidden">
+                  <PhotoImage photo={selectedPhoto} size="original" className="object-contain" />
                 </div>
               </div>
               <div className="rounded-xl border border-indigo-500/20 bg-[#0c0c16] overflow-hidden">
@@ -170,33 +273,31 @@ export function ReviewWorkspace({ processingJob, onBack }: { processingJob: Proc
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400">AI Edited</span>
                   <Sparkles className="w-3 h-3 text-indigo-400" />
                 </div>
-                <div className="aspect-[3/2] bg-gradient-to-br from-indigo-950/30 to-violet-950/20 flex items-center justify-center">
-                  <div className="text-center">
-                    <Wand2 className="w-8 h-8 text-indigo-700 mx-auto mb-2" />
-                    <p className="text-[10px] text-indigo-400/60">AI Enhanced</p>
-                    <p className="text-[10px] text-indigo-500/40">Style applied + retouched</p>
-                  </div>
+                <div className="aspect-[3/2] overflow-hidden">
+                  <PhotoImage photo={selectedPhoto} size="web" className="object-contain" />
                 </div>
               </div>
             </div>
 
             {/* AI Adjustments */}
-            <div className="rounded-xl border border-white/[0.06] bg-[#0c0c16] p-4">
-              <h4 className="text-xs font-semibold text-white mb-3 flex items-center gap-2">
-                <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />AI Adjustments Applied
-              </h4>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {Object.entries(selectedPhoto.ai_edits).map(([key, val]) => (
-                  <div key={key} className="px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04]">
-                    <span className="text-[10px] text-slate-500 capitalize">{key.replace('_', ' ')}</span>
-                    <p className="text-xs text-white font-medium mt-0.5">{String(val)}</p>
-                  </div>
-                ))}
+            {selectedPhoto.ai_edits && Object.keys(selectedPhoto.ai_edits).length > 0 && (
+              <div className="rounded-xl border border-white/[0.06] bg-[#0c0c16] p-4">
+                <h4 className="text-xs font-semibold text-white mb-3 flex items-center gap-2">
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />AI Adjustments Applied
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {Object.entries(selectedPhoto.ai_edits).map(([key, val]) => (
+                    <div key={key} className="px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                      <span className="text-[10px] text-slate-500 capitalize">{key.replace(/_/g, ' ')}</span>
+                      <p className="text-xs text-white font-medium mt-0.5">{String(val)}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Prompt edits history */}
-            {selectedPhoto.prompt_edits.length > 0 && (
+            {selectedPhoto.prompt_edits && selectedPhoto.prompt_edits.length > 0 && (
               <div className="rounded-xl border border-white/[0.06] bg-[#0c0c16] p-4">
                 <h4 className="text-xs font-semibold text-white mb-3 flex items-center gap-2">
                   <MessageSquare className="w-3.5 h-3.5 text-slate-500" />Prompt Edits
@@ -251,14 +352,14 @@ export function ReviewWorkspace({ processingJob, onBack }: { processingJob: Proc
               <div className="space-y-2 text-xs">
                 {[
                   ['Scene', selectedPhoto.scene_type || 'Unknown'],
-                  ['Faces detected', String(selectedPhoto.face_data.length)],
+                  ['Faces detected', String(selectedPhoto.face_data?.length || 0)],
                   ['Quality score', selectedPhoto.quality_score],
                   ['AI confidence', selectedPhoto.edit_confidence],
-                  ['File size', `${((selectedPhoto.file_size || 0) / 1024 / 1024).toFixed(1)} MB`],
+                  ['File size', selectedPhoto.file_size ? `${((selectedPhoto.file_size) / 1024 / 1024).toFixed(1)} MB` : undefined],
                   ['ISO', (selectedPhoto.exif_data as any)?.iso],
                   ['Aperture', (selectedPhoto.exif_data as any)?.aperture],
                   ['Shutter', (selectedPhoto.exif_data as any)?.shutter],
-                ].filter(([, v]) => v !== undefined).map(([label, val]) => (
+                ].filter(([, v]) => v !== undefined && v !== null).map(([label, val]) => (
                   <div key={String(label)} className="flex justify-between">
                     <span className="text-slate-500 capitalize">{label}</span>
                     <span className={`${
@@ -302,6 +403,13 @@ export function ReviewWorkspace({ processingJob, onBack }: { processingJob: Proc
             <p className="text-xs text-slate-500 mt-0.5">{clientName} · {stats.total} images</p>
           </div>
         </div>
+
+        {useMockData && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-300">
+            <Sparkles className="w-3.5 h-3.5 flex-shrink-0" />
+            <span>Showing demo data — real processed photos will appear here once AI processing completes.</span>
+          </div>
+        )}
 
         {/* Actions row */}
         <div className="flex items-center gap-2">
@@ -376,15 +484,7 @@ export function ReviewWorkspace({ processingJob, onBack }: { processingJob: Proc
                 isSelected ? 'ring-2 ring-indigo-500 ring-offset-1 ring-offset-[#07070d]' : 'hover:ring-1 hover:ring-white/20'
               }`}
             >
-              <div className={`w-full h-full flex items-center justify-center ${
-                photo.status === 'approved' ? 'bg-gradient-to-br from-emerald-950/30 to-emerald-900/10'
-                  : photo.needs_review ? 'bg-gradient-to-br from-amber-950/30 to-amber-900/10'
-                  : 'bg-gradient-to-br from-slate-900 to-slate-800'
-              }`}>
-                <Camera className={`w-5 h-5 ${
-                  photo.status === 'approved' ? 'text-emerald-800' : photo.needs_review ? 'text-amber-800' : 'text-slate-700'
-                }`} />
-              </div>
+              <PhotoImage photo={photo} size="thumb" />
 
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
                 <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between">
@@ -465,7 +565,6 @@ export function ReviewWorkspace({ processingJob, onBack }: { processingJob: Proc
                 </div>
               </div>
               <div className="flex items-center gap-3 flex-shrink-0 w-full sm:w-auto">
-                {/* Auto-deliver checkbox */}
                 <label className="flex items-center gap-2 cursor-pointer select-none">
                   <button
                     onClick={() => setAutoDeliver(!autoDeliver)}

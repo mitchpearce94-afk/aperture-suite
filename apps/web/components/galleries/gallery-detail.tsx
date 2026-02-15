@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { formatDate } from '@/lib/utils';
-import { getPhotos, deliverGallery, getCurrentPhotographer } from '@/lib/queries';
+import { getPhotos, deliverGallery, getCurrentPhotographer, hydratePhotoUrls, type PhotoWithUrls } from '@/lib/queries';
 import { sendGalleryDeliveryEmail } from '@/lib/email';
 import { generateMockGalleryPhotos } from './mock-data';
 import type { Gallery, Photo } from '@/lib/types';
@@ -48,8 +48,8 @@ function PhotoLightbox({ photo, photos, onClose, onPrev, onNext }: {
         <ChevronRight className="w-8 h-8" />
       </button>
       <div className="max-w-[90vw] max-h-[90vh] flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
-        {(photo as any).preview_url ? (
-          <img src={(photo as any).preview_url.replace('/800/533', '/1200/800')} alt={photo.filename} className="max-w-full max-h-[85vh] rounded-lg object-contain" />
+        {((photo as any).web_url || (photo as any).edited_url || (photo as any).preview_url) ? (
+          <img src={(photo as any).web_url || (photo as any).edited_url || (photo as any).preview_url} alt={photo.filename} className="max-w-full max-h-[85vh] rounded-lg object-contain" />
         ) : (
           <div className="w-[800px] h-[533px] bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg flex items-center justify-center">
             <div className="text-center">
@@ -94,7 +94,8 @@ export function GalleryDetail({ gallery: initialGallery, onBack, onUpdate }: Gal
       try {
         const data = await getPhotos(gallery.id);
         if (data.length > 0) {
-          setPhotos(data);
+          const hydrated = await hydratePhotoUrls(data);
+          setPhotos(hydrated);
         } else {
           setUseMockPhotos(true);
           setPhotos(generateMockGalleryPhotos(gallery.photo_count || 24));
@@ -342,15 +343,15 @@ export function GalleryDetail({ gallery: initialGallery, onBack, onUpdate }: Gal
       ) : (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-1.5 sm:gap-2">
           {filtered.map((photo) => {
-            const previewUrl = (photo as any).preview_url;
+            const thumbUrl = (photo as any).thumb_url || (photo as any).web_url || (photo as any).preview_url;
             return (
             <div
               key={photo.id}
               onClick={() => setLightboxPhoto(photo)}
               className="relative aspect-square rounded-lg overflow-hidden cursor-pointer group bg-gradient-to-br from-slate-900 to-slate-800 hover:ring-1 hover:ring-white/20 transition-all"
             >
-              {previewUrl ? (
-                <img src={previewUrl} alt={photo.filename} className="w-full h-full object-cover" loading="lazy" />
+              {thumbUrl ? (
+                <img src={thumbUrl} alt={photo.filename} className="w-full h-full object-cover" loading="lazy" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <Camera className="w-5 h-5 text-slate-700" />

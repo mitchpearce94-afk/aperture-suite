@@ -1239,3 +1239,102 @@ export async function deleteBookingSlots(eventId: string): Promise<boolean> {
   return true;
 }
 
+// ============================================
+// Photo Storage URL Helpers
+// ============================================
+
+const SIGNED_URL_EXPIRY = 3600; // 1 hour
+
+/**
+ * Generate a signed URL for a Supabase Storage key.
+ * Returns null if the key is missing or URL generation fails.
+ */
+export async function getSignedUrl(storageKey: string): Promise<string | null> {
+  if (!storageKey) return null;
+  const sb = supabase();
+  const { data, error } = await sb.storage
+    .from('photos')
+    .createSignedUrl(storageKey, SIGNED_URL_EXPIRY);
+  if (error || !data?.signedUrl) return null;
+  return data.signedUrl;
+}
+
+/**
+ * Generate signed URLs for multiple storage keys in one batch call.
+ * Returns a Map of storageKey → signedUrl.
+ */
+export async function getSignedUrls(storageKeys: string[]): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  const validKeys = storageKeys.filter(Boolean);
+  if (validKeys.length === 0) return result;
+
+  const sb = supabase();
+  const { data, error } = await sb.storage
+    .from('photos')
+    .createSignedUrls(validKeys, SIGNED_URL_EXPIRY);
+
+  if (error || !data) return result;
+
+  for (const item of data) {
+    if (item.signedUrl && item.path) {
+      result.set(item.path, item.signedUrl);
+    }
+  }
+  return result;
+}
+
+/**
+ * PhotoWithUrls extends Photo with resolved signed URLs for display.
+ */
+export interface PhotoWithUrls extends Photo {
+  thumb_url?: string;
+  web_url?: string;
+  edited_url?: string;
+  original_url?: string;
+}
+
+/**
+ * Hydrate an array of photos with signed URLs for their storage keys.
+ * Uses batch signing for efficiency.
+ * Priority: thumb_key for grid, web_key for lightbox/detail, edited_key for full-res download.
+ */
+export async function hydratePhotoUrls(photos: Photo[]): Promise<PhotoWithUrls[]> {
+  if (photos.length === 0) return [];
+
+  // Collect all unique storage keys
+  const allKeys: string[] = [];
+  for (const p of photos) {
+    if (p.thumb_key) allKeys.push(p.thumb_key);
+    if (p.web_key) allKeys.push(p.web_key);
+    if (p.edited_key) allKeys.push(p.edited_key);
+    if (p.original_key) allKeys.push(p.original_key);
+  }
+
+  // Batch sign — Supabase supports up to 100 paths per call
+  const urlMap = new Map<string, string>();
+  const BATCH_SIZE = 100;
+  for (let i = 0; i < allKeys.length; i += BATCH_SIZE) {
+    const batch = allKeys.slice(i, i + BATCH_SIZE);
+    const batchUrls = await getSignedUrls(batch);
+    for (const [k, v] of batchUrls) {
+      urlMap.set(k, v);
+    }
+  }
+
+  // Map URLs back to photos
+  return photos.map((p) => ({
+    ...p,
+    thumb_url: p.thumb_key ? urlMap.get(p.thumb_key) : undefined,
+    web_url: p.web_key ? urlMap.get(p.web_key) : undefined,
+    edited_url: p.edited_key ? urlMap.get(p.edited_key) : undefined,
+    original_url: p.original_key ? urlMap.get(p.original_key) : undefined,
+  }));
+}
+
+/**
+ * Load photos for a gallery with signed URLs ready for display.
+ */
+export async function getPhotosWithUrls(galleryId: string): Promise<PhotoWithUrls[]> {
+  const photos = await getPhotos(galleryId);
+  return hydratePhotoUrls(photos);
+}
