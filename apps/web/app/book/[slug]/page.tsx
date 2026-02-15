@@ -109,40 +109,43 @@ export default function PublicBookingPage() {
     if (!selectedSlot || !event) return;
     setSubmitting(true);
 
-    const sb = createSupabaseClient();
+    try {
+      const res = await fetch('/api/book', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          slot_id: selectedSlot.id,
+          name: bookingForm.name,
+          email: bookingForm.email,
+          phone: bookingForm.phone || undefined,
+        }),
+      });
 
-    // Book the slot (anon update policy allows available → booked)
-    const { error: bookError } = await sb
-      .from('booking_slots')
-      .update({
-        status: 'booked',
-        booked_name: bookingForm.name,
-        booked_email: bookingForm.email,
-        booked_phone: bookingForm.phone || null,
-        booked_at: new Date().toISOString(),
-      })
-      .eq('id', selectedSlot.id)
-      .eq('status', 'available'); // Safety: only book if still available
+      const data = await res.json();
 
-    if (bookError) {
-      alert('Sorry, this slot is no longer available. Please choose another time.');
-      // Refresh slots
-      const { data: freshSlots } = await sb
-        .from('booking_slots')
-        .select('*')
-        .eq('event_id', event.id)
-        .eq('status', 'available')
-        .order('date', { ascending: true })
-        .order('start_time', { ascending: true });
-      setSlots(freshSlots || []);
-      setSelectedSlot(null);
-      setSubmitting(false);
-      return;
+      if (!res.ok) {
+        alert(data.error || 'Sorry, this slot is no longer available. Please choose another time.');
+        // Refresh slots
+        const sb = createSupabaseClient();
+        const { data: freshSlots } = await sb
+          .from('booking_slots')
+          .select('*')
+          .eq('event_id', event.id)
+          .eq('status', 'available')
+          .order('date', { ascending: true })
+          .order('start_time', { ascending: true });
+        setSlots(freshSlots || []);
+        setSelectedSlot(null);
+        setSubmitting(false);
+        return;
+      }
+
+      // Remove booked slot from available list
+      setSlots((prev) => prev.filter((s) => s.id !== selectedSlot.id));
+      setBooked(true);
+    } catch (err) {
+      alert('Something went wrong. Please try again.');
     }
-
-    // Remove booked slot from available list
-    setSlots((prev) => prev.filter((s) => s.id !== selectedSlot.id));
-    setBooked(true);
     setSubmitting(false);
   }
 
