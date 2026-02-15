@@ -189,12 +189,12 @@ export function ReviewWorkspace({ processingJob, onBack }: { processingJob: Proc
             const photographer = await getCurrentPhotographer();
             if (photographer) {
               await sendGalleryDeliveryEmail({
+                to: galleryFull.client.email,
                 clientName: `${galleryFull.client.first_name} ${galleryFull.client.last_name || ''}`.trim(),
-                clientEmail: galleryFull.client.email,
                 galleryTitle: galleryFull.title,
                 galleryUrl: `${window.location.origin}/gallery/${galleryFull.slug || galleryFull.id}`,
                 photographerName: photographer.business_name || photographer.name,
-                password: galleryFull.access_type === 'password' ? (galleryFull as any).password : undefined,
+                businessName: photographer.business_name || photographer.name,
               });
             }
           }
