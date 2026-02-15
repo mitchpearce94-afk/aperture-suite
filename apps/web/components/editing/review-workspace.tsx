@@ -174,8 +174,12 @@ export function ReviewWorkspace({ processingJob, onBack }: { processingJob: Proc
         await sb.from('jobs').update({ status: newJobStatus }).eq('id', galleryData.job_id);
       }
 
-      // 4. Update processing job status to 'delivered' (removes from review queue)
-      await sb.from('processing_jobs').update({ status: 'delivered' }).eq('id', processingJob.id);
+      // 4. Mark processing job as delivered via server-side API (bypasses RLS)
+      await fetch('/api/processing-jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'mark_delivered', job_id: processingJob.id }),
+      });
 
       // 5. If autoDeliver, trigger gallery delivery email
       if (autoDeliver) {
@@ -205,20 +209,12 @@ export function ReviewWorkspace({ processingJob, onBack }: { processingJob: Proc
         }
       }
     } else {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
 
-    setPhotos((prev) => prev.map((p) =>
-      p.status === 'approved' ? { ...p, status: 'delivered' as const } : p
-    ));
-
     setSendingToGallery(false);
-    setSentToGallery(true);
-
-    // Return to editing page after 2 seconds
-    setTimeout(() => {
-      onBack();
-    }, 2000);
+    // Go straight back — the editing page will refresh and the job will be gone
+    onBack();
   };
 
   const approvedCount = photos.filter((p) => p.status === 'approved').length;

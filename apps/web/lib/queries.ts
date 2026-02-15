@@ -506,6 +506,7 @@ export async function getProcessingJobs(): Promise<ProcessingJob[]> {
   const { data, error } = await sb
     .from('processing_jobs')
     .select('*, gallery:galleries(title, job_id, job:jobs(title, job_number, client:clients(first_name, last_name)))')
+    .not('status', 'eq', 'delivered')
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -513,6 +514,30 @@ export async function getProcessingJobs(): Promise<ProcessingJob[]> {
     return [];
   }
   return data || [];
+}
+
+export async function deleteProcessingJob(jobId: string): Promise<boolean> {
+  const sb = supabase();
+  const { error } = await sb.from('processing_jobs').delete().eq('id', jobId);
+  if (error) {
+    console.error('Error deleting processing job:', error);
+    return false;
+  }
+  return true;
+}
+
+export async function clearDeliveredProcessingJobs(): Promise<number> {
+  const sb = supabase();
+  const { data, error } = await sb
+    .from('processing_jobs')
+    .delete()
+    .in('status', ['delivered', 'completed'])
+    .select('id');
+  if (error) {
+    console.error('Error clearing delivered jobs:', error);
+    return 0;
+  }
+  return data?.length || 0;
 }
 
 export async function createProcessingJob(processingJob: {
