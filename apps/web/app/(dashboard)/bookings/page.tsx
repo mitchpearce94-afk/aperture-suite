@@ -211,7 +211,7 @@ export default function BookingsPage() {
           icon={CalendarCheck}
           title="No booking events yet"
           description="Create your first booking event — like Christmas Mini Sessions — and share the link with clients to let them book a time slot."
-          action={<Button onClick={() => setShowCreateModal(true)}><Plus className="w-4 h-4" />Create Booking Event</Button>}
+          action={{ label: "Create Booking Event", onClick: () => setShowCreateModal(true) }}
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
