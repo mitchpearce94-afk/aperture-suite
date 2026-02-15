@@ -1,5 +1,5 @@
 """
-Database helpers — update processing_jobs, photos, galleries in Supabase.
+Database helpers — update processing_jobs, photos, galleries via Supabase REST API.
 """
 import logging
 from typing import Optional
@@ -12,16 +12,14 @@ log = logging.getLogger(__name__)
 # ── Processing Jobs ──────────────────────────────────────────
 
 def update_processing_job(job_id: str, **fields):
-    """Update a processing_jobs record."""
     try:
         sb = get_supabase()
-        sb.table("processing_jobs").update(fields).eq("id", job_id).execute()
+        sb.update("processing_jobs", fields, {"id": f"eq.{job_id}"})
     except Exception as e:
         log.error(f"Failed to update processing_job {job_id}: {e}")
 
 
 def set_job_phase(job_id: str, phase: str, processed: Optional[int] = None):
-    """Update current phase and optionally processed count."""
     fields = {"current_phase": phase, "status": "processing"}
     if processed is not None:
         fields["processed_images"] = processed
@@ -29,7 +27,6 @@ def set_job_phase(job_id: str, phase: str, processed: Optional[int] = None):
 
 
 def complete_job(job_id: str, total: int):
-    """Mark a processing job as completed."""
     update_processing_job(
         job_id,
         status="completed",
@@ -40,7 +37,6 @@ def complete_job(job_id: str, total: int):
 
 
 def fail_job(job_id: str, error: str):
-    """Mark a processing job as failed."""
     update_processing_job(
         job_id,
         status="failed",
@@ -52,67 +48,55 @@ def fail_job(job_id: str, error: str):
 # ── Photos ───────────────────────────────────────────────────
 
 def get_gallery_photos(gallery_id: str) -> list[dict]:
-    """Fetch all photos for a gallery, ordered by sort_order."""
     try:
         sb = get_supabase()
-        resp = (
-            sb.table("photos")
-            .select("*")
-            .eq("gallery_id", gallery_id)
-            .order("sort_order")
-            .execute()
-        )
-        return resp.data or []
+        return sb.select("photos", "*", {"gallery_id": f"eq.{gallery_id}"}, order="sort_order.asc")
     except Exception as e:
         log.error(f"Failed to fetch photos for gallery {gallery_id}: {e}")
         return []
 
 
 def update_photo(photo_id: str, **fields):
-    """Update a photo record."""
     try:
         sb = get_supabase()
-        sb.table("photos").update(fields).eq("id", photo_id).execute()
+        sb.update("photos", fields, {"id": f"eq.{photo_id}"})
     except Exception as e:
         log.error(f"Failed to update photo {photo_id}: {e}")
 
 
 def bulk_update_photos(photo_ids: list[str], **fields):
-    """Update multiple photo records at once."""
     try:
         sb = get_supabase()
-        sb.table("photos").update(fields).in_("id", photo_ids).execute()
+        sb.update_many("photos", fields, ("id", photo_ids))
     except Exception as e:
         log.error(f"Failed to bulk update photos: {e}")
 
 
-# ── Jobs (shooting jobs, not processing) ─────────────────────
+# ── Jobs ─────────────────────────────────────────────────────
 
 def update_job_status(job_id: str, status: str):
-    """Update the shooting job's status (e.g. editing → ready_for_review)."""
     try:
         sb = get_supabase()
-        sb.table("jobs").update({"status": status}).eq("id", job_id).execute()
+        sb.update("jobs", {"status": status}, {"id": f"eq.{job_id}"})
     except Exception as e:
         log.error(f"Failed to update job {job_id} status: {e}")
 
 
+# ── Galleries ────────────────────────────────────────────────
+
 def get_gallery(gallery_id: str) -> Optional[dict]:
-    """Fetch gallery details."""
     try:
         sb = get_supabase()
-        resp = sb.table("galleries").select("*, job:jobs(id, status)").eq("id", gallery_id).single().execute()
-        return resp.data
+        return sb.select_single("galleries", "*, job:jobs(id, status)", {"id": f"eq.{gallery_id}"})
     except Exception as e:
         log.error(f"Failed to fetch gallery {gallery_id}: {e}")
         return None
 
 
 def update_gallery(gallery_id: str, **fields):
-    """Update gallery record."""
     try:
         sb = get_supabase()
-        sb.table("galleries").update(fields).eq("id", gallery_id).execute()
+        sb.update("galleries", fields, {"id": f"eq.{gallery_id}"})
     except Exception as e:
         log.error(f"Failed to update gallery {gallery_id}: {e}")
 
@@ -120,20 +104,17 @@ def update_gallery(gallery_id: str, **fields):
 # ── Style Profiles ───────────────────────────────────────────
 
 def get_style_profile(profile_id: str) -> Optional[dict]:
-    """Fetch a style profile by ID."""
     try:
         sb = get_supabase()
-        resp = sb.table("style_profiles").select("*").eq("id", profile_id).single().execute()
-        return resp.data
+        return sb.select_single("style_profiles", "*", {"id": f"eq.{profile_id}"})
     except Exception as e:
         log.error(f"Failed to fetch style profile {profile_id}: {e}")
         return None
 
 
 def update_style_profile(profile_id: str, **fields):
-    """Update a style profile record."""
     try:
         sb = get_supabase()
-        sb.table("style_profiles").update(fields).eq("id", profile_id).execute()
+        sb.update("style_profiles", fields, {"id": f"eq.{profile_id}"})
     except Exception as e:
         log.error(f"Failed to update style profile {profile_id}: {e}")

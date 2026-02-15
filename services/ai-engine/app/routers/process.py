@@ -31,11 +31,6 @@ class ProcessResponse(BaseModel):
 
 @router.post("/gallery", response_model=ProcessResponse)
 async def process_gallery(request: ProcessRequest, background_tasks: BackgroundTasks):
-    """
-    Trigger AI processing for an entire gallery.
-
-    Creates a processing_jobs record and starts the pipeline in the background.
-    """
     gallery = get_gallery(request.gallery_id)
     if not gallery:
         return ProcessResponse(
@@ -52,31 +47,25 @@ async def process_gallery(request: ProcessRequest, background_tasks: BackgroundT
 
     total = len(photos)
 
-    # Create processing job record
     sb = get_supabase()
-    result = (
-        sb.table("processing_jobs")
-        .insert({
-            "gallery_id": request.gallery_id,
-            "photographer_id": gallery["photographer_id"],
-            "style_profile_id": request.style_profile_id,
-            "total_images": total,
-            "processed_images": 0,
-            "status": "queued",
-            "current_phase": "queued",
-        })
-        .execute()
-    )
+    job_row = sb.insert("processing_jobs", {
+        "gallery_id": request.gallery_id,
+        "photographer_id": gallery["photographer_id"],
+        "style_profile_id": request.style_profile_id,
+        "total_images": total,
+        "processed_images": 0,
+        "status": "queued",
+        "current_phase": "queued",
+    })
 
-    if not result.data:
+    if not job_row:
         return ProcessResponse(
             job_id="", status="error",
             message="Failed to create processing job", total_images=0,
         )
 
-    job_id = result.data[0]["id"]
+    job_id = job_row["id"]
 
-    # Run pipeline in background thread
     def run_in_thread():
         try:
             run_pipeline(
@@ -100,32 +89,22 @@ async def process_gallery(request: ProcessRequest, background_tasks: BackgroundT
 
 @router.post("/single/{photo_id}")
 async def process_single_photo(photo_id: str, prompt: Optional[str] = None):
-    """Process or re-process a single photo, optionally with a prompt edit."""
     return {
         "photo_id": photo_id,
         "status": "not_available",
         "prompt": prompt,
-        "message": "Single photo re-processing requires GPU models (Phase 2/3). Architecture ready — plug in when GPU infra is live.",
+        "message": "Single photo re-processing requires GPU models. Architecture ready.",
     }
 
 
 @router.get("/status/{job_id}")
 async def get_processing_status(job_id: str):
-    """Get the real-time status of a processing job."""
     try:
         sb = get_supabase()
-        result = (
-            sb.table("processing_jobs")
-            .select("*")
-            .eq("id", job_id)
-            .single()
-            .execute()
-        )
-
-        if not result.data:
+        job = sb.select_single("processing_jobs", "*", {"id": f"eq.{job_id}"})
+        if not job:
             return {"error": "Job not found"}
 
-        job = result.data
         return {
             "job_id": job["id"],
             "status": job["status"],

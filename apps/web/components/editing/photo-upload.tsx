@@ -70,6 +70,7 @@ export function PhotoUpload({ onUploadComplete }: PhotoUploadProps) {
   const [selectedStyleId, setSelectedStyleId] = useState<string>('');
   const [autoProcess, setAutoProcess] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileMapRef = useRef<Map<string, File>>(new Map());
 
   useEffect(() => {
     async function load() {
@@ -90,8 +91,10 @@ export function PhotoUpload({ onUploadComplete }: PhotoUploadProps) {
 
     Array.from(newFiles).forEach((file) => {
       if (isValidFile(file)) {
+        const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        fileMapRef.current.set(id, file);
         validFiles.push({
-          id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          id,
           file,
           progress: 0,
           status: 'pending',
@@ -169,6 +172,7 @@ export function PhotoUpload({ onUploadComplete }: PhotoUploadProps) {
       // Upload each file sequentially
       for (let i = 0; i < files.length; i++) {
         const uploadFile = files[i];
+        const actualFile = fileMapRef.current.get(uploadFile.id) || uploadFile.file;
 
         // Mark as uploading
         setFiles((prev) =>
@@ -177,7 +181,7 @@ export function PhotoUpload({ onUploadComplete }: PhotoUploadProps) {
 
         try {
           const result = await uploadPhotoToStorage(
-            uploadFile.file,
+            actualFile,
             photographer.id,
             gallery.id
           );

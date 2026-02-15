@@ -1,7 +1,7 @@
 # Apelier — Master Document
 
-**Version:** 3.3  
-**Last Updated:** 15 February 2026 (booking API auto-creates client/job/invoice, cancel job frees slot, edit event, public slots show booked as greyed out)  
+**Version:** 3.5  
+**Last Updated:** 15 February 2026 (Style training wired end-to-end — ref upload via server route, AI engine training via bridge API, style profiles tab with polling, processing queue live polling added)  
 **Project Location:** `C:\Users\mitch\OneDrive\Documents\aperture-suite`  
 **GitHub:** `github.com/mitchpearce94-afk/aperture-suite`  
 **Live URL:** Deployed on Vercel (auto-deploys from `main` branch)  
@@ -145,20 +145,20 @@ There are two paths to booking:
 | Styling | Tailwind CSS | Utility-first responsive design |
 | Hosting (Web) | Vercel | Auto-deploys from GitHub `main` branch |
 | Database | Supabase (PostgreSQL) | Auth, data, RLS, real-time subscriptions |
-| AI Service | Python FastAPI | RAW processing, GPU model inference |
-| AI Hosting | Railway or Modal (GPU) | Scalable compute for image processing |
-| Storage | Backblaze B2 (S3-compatible) | Photo storage ($0.005/GB vs AWS $0.023/GB) |
+| AI Service | Python FastAPI | RAW processing, image analysis, style transfer |
+| AI Hosting | Railway (CPU) / Modal (GPU — future) | AI engine serves on port 8000 |
+| Storage | Supabase Storage (photos bucket) | Photo storage with RLS, 100MB/file |
 | CDN | Cloudflare R2 | Fast gallery delivery, watermarking |
 | Queue | BullMQ (Redis) | Job queue for AI processing pipeline |
 | Payments | Stripe + Stripe Connect | Client payments, photographer payouts |
 | Email | Resend or Postmark | Transactional + marketing automations |
-| AI/ML | LibRAW, Pillow, OpenCV, PyTorch | Image processing, style transfer, inpainting |
+| AI/ML | Pillow, OpenCV, NumPy, rawpy | Image processing, analysis, style transfer (CPU). PyTorch/SAM 2 planned for GPU phases |
 
 ---
 
 ## 4. Database Schema (Supabase PostgreSQL)
 
-**14 tables + 3 new tables + RLS policies per photographer. 14 migrations applied:**
+**14 tables + 3 new tables + RLS policies per photographer. 14 migrations applied. Storage RLS simplified for uploads.**
 
 | Table | Purpose | Key Fields |
 |-------|---------|------------|
@@ -171,7 +171,7 @@ There are two paths to booking:
 | `packages` | Service packages | photographer_id, name, description, price, duration_hours, included_images, deliverables, is_active, require_deposit, deposit_percent, sort_order |
 | `booking_events` | Bookable sessions | photographer_id, title, description, location, package_id, custom_price, slot_duration_minutes, buffer_minutes, slug, is_published, status (draft/published/closed/archived), auto_create_job, auto_create_invoice |
 | `booking_slots` | Time slots within events | event_id, photographer_id, date, start_time, end_time, status (available/booked/blocked/canceled), client_id, job_id, booked_name, booked_email, booked_phone, booked_answers, booked_at |
-| `galleries` | Photo collections | photographer_id, job_id, client_id, title, description, slug, access_type, download_permissions, brand_override, expires_at, status, view_count, photo_count |
+| `galleries` | Photo collections | photographer_id, job_id, client_id, title, description, slug, access_type, download_permissions, brand_override, expires_at, status, view_count |
 | `photos` | Individual images | gallery_id, photographer_id, original_key, edited_key, web_key, thumb_key, watermarked_key, filename, file_size, width, height, exif_data, scene_type, quality_score, face_data, ai_edits, manual_edits, prompt_edits, status, star_rating, color_label, is_culled, is_favorite, is_sneak_peek, sort_order, section, edit_confidence, needs_review |
 | `style_profiles` | AI editing styles | photographer_id, name, description, reference_image_keys, model_weights_key, settings (JSONB), status (pending/training/ready/error) |
 | `processing_jobs` | AI queue | photographer_id, gallery_id, style_profile_id, total_images, processed_images, current_phase, status (queued/processing/completed/failed/canceled) |
@@ -217,10 +217,11 @@ There are two paths to booking:
 - **Workflows:** 6 pre-built automation presets (lead auto-response, booking confirmation, pre-shoot reminder, post-shoot with 48hr review email, gallery delivery, payment reminders). All deposit-aware. Toggle on/off. Preview mode
 - **Analytics:** Period filters, revenue/booked/conversion stats, bar chart revenue by month, lead source + job type breakdowns
 - **Auto Editing (AI Workspace):**
-  - **Photo Upload tab:** Select a job → drag-and-drop or click to upload RAW/JPEG files. Accepts CR2, CR3, NEF, ARW, DNG, RAF, ORF, RW2, TIFF, JPEG, PNG, WEBP. Shows per-file upload progress, auto-creates gallery for job, uploads to Supabase Storage (`photos/{photographer_id}/{gallery_id}/originals/`), creates photo records in DB. Real Supabase integration (queries: `getUploadableJobs`, `uploadPhotoToStorage`, `createPhotoRecord`, `createGalleryForJob`)
-  - **Processing Queue tab:** Stats cards (processing/queued/completed/total images). Processing cards with 6-phase progress indicator (Analysis → Style → Retouch → Cleanup → Composition → QA). Each phase shows tooltip with description on hover. Click to review when complete
+  - **Photo Upload tab:** Select a job → drag-and-drop or click to upload RAW/JPEG files. Accepts CR2, CR3, NEF, ARW, DNG, RAF, ORF, RW2, TIFF, JPEG, PNG, WEBP. Shows per-file upload progress, auto-creates gallery for job, uploads to Supabase Storage via server-side API route (`/api/upload`), creates photo records in DB. Auto-triggers AI processing after upload (toggle in UI). Real Supabase integration (queries: `getUploadableJobs`, `uploadPhotoToStorage`, `createPhotoRecord`, `createGalleryForJob`)
+  - **AI Processing Pipeline (Python FastAPI):** Fully built and tested. Upload triggers `/api/process` → AI engine runs 6 phases → outputs uploaded to Supabase Storage (`edited/`, `web/`, `thumbs/`). Photo records updated with output keys, quality scores, scene types, face data. Gallery marked `ready`, job marked `ready_for_review`. Run locally: `python -m uvicorn app.main:app --reload --port 8000`
+  - **Processing Queue tab:** Stats cards (processing/queued/completed/total images). Processing cards with 6-phase progress indicator (Analysis → Style → Retouch → Cleanup → Composition → QA). Each phase shows tooltip with description on hover. Click to review when complete. **Note:** Doesn't poll for live updates yet — needs `setInterval` wiring
   - **Review Workspace:** Full photo review UI with grid view, section filters (ceremony/reception/portraits/etc.), status filters (all/edited/approved/needs review). Click photo to enlarge with before/after. Approve/reject individual photos. Star ratings. Bulk select mode. Prompt-based editing chat input per photo. "Send to Gallery" button to deliver approved photos. Stats bar showing total/edited/approved/needs review/culled counts
-  - **Style profiles:** Create style flow modal with name/description → upload 100-200+ reference images (min 100, recommended 200, max 300) → trains style. Accepted formats: JPEG, PNG, WEBP, TIFF. Upload progress tracking
+  - **Style profiles:** Create style flow modal with name/description → upload 100-200+ reference images (min 100, recommended 200, max 300) → trains style. Backend training endpoint built (`/api/style/create`) with histogram-based style learning. Accepted formats: JPEG, PNG, WEBP, TIFF
   - Falls back to **mock data** when no real processing jobs exist — shows demo content with "Showing demo data" banner
 - **Galleries:**
   - Dashboard page with grid cards showing cover placeholder, status badge, access type icon, photo count
@@ -264,14 +265,15 @@ There are two paths to booking:
 - **Workflows:** UI only, email templates exist but workflow triggers not wired to automatic scheduling
 - **Analytics:** Uses Supabase data but some mock calculations
 - **Branding:** Logo upload is local preview only (needs file storage)
-- **Auto Editing — Processing Queue & Review:** Upload infrastructure is real (Supabase Storage + queries), but AI processing pipeline (Python FastAPI) not yet running, so processing queue and review workspace use mock data for demo purposes
-- **Style profile training:** UI and upload flow built, backend training not connected
+- **Auto Editing — Processing Queue polling:** ~~Upload + AI pipeline works end-to-end, but the Processing Queue tab doesn't poll for live progress updates.~~ ✅ FIXED — polls every 4 seconds via `/api/process/status/{id}`, shows real-time phase progression
+- **Auto Editing — Review Workspace:** Review workspace uses mock data. Needs to load real processed photos from Supabase Storage using `edited_key`/`web_key`/`thumb_key` paths
+- **Style profile training:** ✅ WIRED END-TO-END — UI uploads refs via server-side route, triggers AI engine training via `/api/style` bridge, polls for training status. Style profiles selectable when uploading photos for processing
 - **Gallery images:** Photo placeholders shown (Camera icon) — real image display needs Supabase Storage URL integration for thumbnails/web-res
 - **Email sending:** Resend API route built, gallery delivery email wired, but requires `RESEND_API_KEY` env var to actually send (logs in dev mode without it). Booking/invoice/contract emails have templates but aren't wired to their respective flows yet
 - **Gallery password protection:** Password gate UI built on client-facing page, but actual hash verification not implemented (accepts any input currently)
 
 ### ❌ Not Yet Built
-- **AI processing pipeline running** (Python service with 6 phases — FastAPI scaffolded but no actual image processing)
+- **AI processing on GPU** (Phases 2 & 3 are stubs — skin retouching needs SAM 2/face models, scene cleanup needs inpainting models. Phases 0/1/4/5 are fully working on CPU)
 - **Prompt-based per-image editing backend** (chat interface built in review workspace, needs AI inference)
 - **Client-facing quote page** (view packages, add extras, accept/decline — triggers booking flow)
 - **Public contact form** (auto-creates leads from website)
@@ -366,7 +368,12 @@ aperture-suite/
 │       │   ├── book/[slug]/page.tsx  # Public client-facing booking page
 │       │   ├── gallery/[slug]/page.tsx # Public client-facing gallery page
 │       │   ├── api/
-│       │   │   └── email/route.ts     # Resend email API (gallery delivery, booking, invoice, contract, reminder)
+│       │   │   ├── email/route.ts     # Resend email API (gallery delivery, booking, invoice, contract, reminder)
+│       │   │   ├── upload/route.ts    # Server-side photo upload to Supabase Storage (bypasses browser auth issue)
+│       │   │   ├── process/route.ts   # Bridge to AI engine — triggers processing pipeline
+│       │   │   ├── book/route.ts      # Public booking API (creates client/job/invoice)
+│       │   │   ├── style/route.ts    # Bridge to AI engine — style create/status/retrain
+│       │   │   └── gallery-password/route.ts
 │       │   ├── auth/callback/route.ts # OAuth callback
 │       │   ├── layout.tsx
 │       │   └── page.tsx              # Landing page
@@ -379,7 +386,8 @@ aperture-suite/
 │       │   │   ├── editing-cards.tsx   # ProcessingCard + PhaseProgress components
 │       │   │   ├── photo-upload.tsx    # Job picker + drag-drop RAW upload with progress
 │       │   │   ├── review-workspace.tsx # Full photo review UI with filters, approve/reject, prompt chat
-│       │   │   ├── style-upload.tsx    # Style profile creation flow (name → upload refs)
+│       │   │   ├── style-upload.tsx    # Style profile creation flow (name → upload refs → train via AI engine)
+│       │   │   ├── style-profiles.tsx  # Style profile list/manage with training status polling
 │       │   │   └── mock-data.ts       # Mock processing jobs, photos, phases for demo
 │       │   ├── galleries/
 │       │   │   ├── gallery-detail.tsx  # Gallery detail/settings panel
@@ -410,20 +418,29 @@ aperture-suite/
 │       ├── middleware.ts              # Auth route protection (excludes /sign, /gallery, /book)
 │       └── [config files]
 ├── services/
-│   └── ai-engine/                    # Python FastAPI service (scaffolded)
+│   └── ai-engine/                    # Python FastAPI service (FULLY BUILT)
 │       ├── app/
-│       │   ├── main.py
+│       │   ├── main.py               # FastAPI app with CORS, logging
+│       │   ├── config.py             # Settings + lightweight SupabaseClient via httpx (no SDK)
 │       │   ├── routers/
 │       │   │   ├── health.py
-│       │   │   ├── process.py
-│       │   │   └── style.py
-│       │   ├── pipeline/             # 6-phase AI processing (empty, to be built)
-│       │   ├── models/
+│       │   │   ├── process.py        # /api/process/gallery, /api/process/status/{id}
+│       │   │   └── style.py          # /api/style/create, /api/style/{id}/status
+│       │   ├── pipeline/
+│       │   │   ├── phase0_analysis.py  # EXIF, scene detection, quality scoring, face detection, phash
+│       │   │   ├── phase1_style.py     # Histogram matching, white balance, saturation adjustment
+│       │   │   ├── phase4_composition.py # Horizon detection (Hough), straightening, crop optimisation
+│       │   │   ├── phase5_output.py    # Web-res/thumb/full-res generation, quality-based selection
+│       │   │   └── orchestrator.py     # Runs all 6 phases, updates DB in real-time
 │       │   ├── storage/
+│       │   │   ├── supabase_storage.py # download_photo(), upload_photo()
+│       │   │   └── db.py              # All Supabase table operations via REST API
 │       │   └── workers/
+│       │       └── style_trainer.py   # Background style profile training
+│       ├── .env                       # SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY
 │       ├── Dockerfile
 │       ├── railway.toml
-│       └── requirements.txt
+│       └── requirements.txt           # fastapi, uvicorn, pillow, rawpy, numpy, opencv-python-headless, httpx, pydantic
 ├── supabase/
 │   └── migrations/                   # SQL migrations (run in Supabase Dashboard SQL Editor)
 │       ├── 20260213000000_initial_schema.sql
@@ -500,25 +517,75 @@ aperture-suite/
 
 ---
 
-## 10. AI Processing Pipeline (6 Phases, 24 Steps)
+## 10. AI Processing Pipeline (6 Phases — FULLY BUILT & TESTED)
 
-### Phase 0 — Image Analysis
-Scene type detection, face detection + counting, quality scoring (exposure, focus, noise, composition), duplicate/burst grouping, EXIF metadata extraction
+**Status:** ✅ End-to-end pipeline runs locally. Upload → analysis → style → composition → output → Supabase Storage. All DB updates working.
 
-### Phase 1 — Style Application
-Apply photographer's trained style profile: exposure, white balance, contrast, colour grading, shadows, highlights, HSL, tone curve. Style learned from 50–200 reference images.
+### Phase 0 — Image Analysis (CPU — `phase0_analysis.py`)
+- **EXIF extraction:** Camera, lens, ISO, aperture, shutter speed, focal length via Pillow
+- **Scene classification:** portrait/group/landscape/detail/ceremony/reception/candid — based on face count + aspect ratio + edge density + colour analysis
+- **Quality scoring:** Exposure (histogram spread, clipping), sharpness (Laplacian variance), noise (patch variance), composition (rule-of-thirds) — each 0-100, weighted average
+- **Face detection:** Haar cascade, returns bounding boxes
+- **Duplicate grouping:** Perceptual hashing (DCT-based), Hamming distance threshold
 
-### Phase 2 — Face & Skin Retouching
-Skin smoothing (texture-preserving), blemish/acne removal, stray hair cleanup, red-eye removal, subtle teeth whitening
+### Phase 1 — Style Application (CPU — `phase1_style.py`)
+- **Training:** Analyse 50-200+ reference images → extract per-channel histograms (BGR, LAB), white balance (a/b channels), saturation, shadow/midtone/highlight means → aggregate into style profile JSON
+- **Application:** Histogram matching per channel, white balance shift, saturation adjustment, shadow lift
+- **Intensity parameter** (0.0-1.0) controls strength of style application
 
-### Phase 3 — Scene Cleanup
-Background person/distraction removal, exit sign removal, power line removal, lens flare removal, trash/bright distraction removal in venue shots
+### Phase 2 — Face & Skin Retouching (STUB — needs GPU)
+- Basic unsharp mask implemented as placeholder
+- Architecture ready for SAM 2 / face models when GPU available
 
-### Phase 4 — Composition
-Horizon straightening, crop optimisation, rule-of-thirds alignment
+### Phase 3 — Scene Cleanup (STUB — needs GPU)
+- Skipped, ready for inpainting models (Stable Diffusion / InstructPix2Pix)
 
-### Phase 5 — QA & Output
-Final quality check, generate web-res + thumbnail + full-res outputs, verify all images processed, select top N based on package's included images count
+### Phase 4 — Composition (CPU — `phase4_composition.py`)
+- **Horizon detection:** Hough line detection, weighted average of horizontal lines
+- **Straightening:** Rotate if angle >0.3° and <5° (avoids over-correcting intentional tilts)
+- **Crop optimisation:** Interest map (edge density + face regions), find crop maximising thirds alignment, only apply if 1-15% trim
+
+### Phase 5 — QA & Output (CPU — `phase5_output.py`)
+- Generate web-res (2048px max), thumbnail (400px max), full-res JPEG
+- Quality-based selection: Top N images by quality score with scene diversity (max 1/3 from same scene type), duplicate group filtering
+- Upload all variants to Supabase Storage (`edited/`, `web/`, `thumbs/` folders)
+
+### Orchestrator (`orchestrator.py`)
+- Runs all phases sequentially for a gallery
+- Updates `processing_jobs` status in real-time (current_phase, processed_images)
+- Updates photo records with analysis results, output keys, ai_edits metadata
+- Marks unselected photos as culled
+- Updates gallery status → `ready`, job status → `ready_for_review`
+
+### Supabase Client (`config.py`)
+- Lightweight httpx-based client — no heavy SDK needed (avoided Python 3.14 build issues with pyiceberg/pyroaring C++ dependencies)
+- Methods: `select`, `select_single`, `insert`, `update`, `update_many`, `storage_download`, `storage_upload`
+- Built-in numpy type sanitizer for JSON serialization
+
+### Cost Model (estimated)
+- Per-image GPU cost: $0.01-0.017 (when GPU phases enabled)
+- 4,000 photos/week × $0.015 = ~$240/month compute
+- Phases 0/1/4/5 run on CPU (no extra cost beyond Railway hosting)
+- Phases 2/3 ready to plug into Modal/Replicate when GPU enabled
+- **Recommended pricing tiers:** Starter $39/mo (1,000 images), Pro $69/mo (5,000 images), Business $119/mo (15,000 images)
+
+### Local Development
+```powershell
+# Terminal 1 — AI Engine
+cd services/ai-engine
+python -m pip install -r requirements.txt
+python -m uvicorn app.main:app --reload --port 8000
+
+# Terminal 2 — Next.js
+cd apps/web
+npm run dev
+```
+
+### Production Deployment (Railway)
+1. Connect GitHub repo → point to `services/ai-engine` directory
+2. Add env vars: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+3. Builds from Dockerfile, serves on `$PORT`
+4. Set `AI_ENGINE_URL` in Vercel env vars to Railway URL
 
 ### Photographer Controls
 Every automated step has a configurable level: Off → Flag Only → Auto-Fix. Set defaults once, override per-shoot.
@@ -696,6 +763,42 @@ Run new SQL in Supabase Dashboard → SQL Editor. Migration files stored in `sup
 - **Public booking page — useParams fix:** Fixed `use(params)` to `useParams()` for Next.js 14 compatibility
 - **Time format fix:** Booking API now saves job times as `HH:MM` instead of `HH:MM:SS` from Postgres TIME columns
 
+### Features Added (15 Feb 2026 — Style Training & Processing Polish Session)
+- **Style API bridge route (`/api/style/route.ts`):** Frontend-to-AI-engine bridge for style profile operations. Supports `create` (upload refs + trigger training), `status` (poll training progress), and `retrain` (re-train existing profile). Same pattern as `/api/process` bridge
+- **Style upload fixed — server-side uploads:** `style-upload.tsx` rewritten to upload reference images via `/api/upload` server-side route (same fix as photo uploads — bypasses browser Supabase auth cookie issue). Previously used browser client which had no auth session
+- **Style training triggers AI engine:** After uploading reference images, the `CreateStyleFlow` component POSTs to `/api/style` with `action: 'create'`, which forwards to the AI engine's `/api/style/create` endpoint. The AI engine creates the style_profiles DB record and kicks off training in a background thread
+- **Style Profiles tab on editing page:** New "Style Profiles" tab added to the Auto Editor page. Lists all profiles with status badges (pending/training/ready/error), reference image count, training date. Create new, delete, and re-train actions. Auto-polls every 5 seconds when any profile is in training status
+- **Processing Queue live polling:** Added `setInterval` (4-second interval) to poll `/api/process/status/{job_id}` when on the queue tab. Shows real-time phase progression. Stops polling when no active jobs remain. Full job list refreshes on each poll cycle
+- **`createStyleProfile` accepts reference_image_keys:** Updated queries.ts function signature to accept `reference_image_keys` and `status` parameters instead of hardcoding empty array and 'pending'
+- **MIN_IMAGES lowered to 50:** Changed from 100 to 50 to match the master doc spec (50–200 reference images) — lower barrier than competitors
+
+### Known Issues (to fix)
+- **Processing Queue doesn't poll:** ~~The Processing Queue tab fires the process request but doesn't poll `/api/process/status/{job_id}` for live progress.~~ ✅ FIXED — now polls every 4 seconds
+- **Cloud files fail upload:** Files synced via OneDrive/cloud that aren't fully downloaded locally cause `ERR_FAILED` on upload. Only locally-available files work
+- **Click-to-browse button not working:** The file picker "click to browse" area in the upload component is unresponsive (likely z-index issue). Drag-and-drop works fine
+
+### Features Added (15 Feb 2026 — AI Engine Build & Test Session)
+- **Complete AI engine built (`services/ai-engine/`):** 6-phase processing pipeline fully implemented in Python. Phases 0 (analysis), 1 (style), 4 (composition), 5 (output) are fully working on CPU. Phases 2 (retouching) and 3 (cleanup) are stubs awaiting GPU models
+- **Lightweight Supabase client (`config.py`):** Replaced heavy `supabase` Python SDK (which required C++ build tools via pyiceberg/pyroaring) with a custom httpx-based REST client. All table operations (select, insert, update) and storage operations (download, upload) via direct REST API calls. Includes numpy type sanitizer for JSON serialization
+- **Photo upload via server-side API route (`/api/upload`):** Browser Supabase client had no auth session (cookie issue with `@supabase/ssr`), so uploads are routed through a Next.js API route that uses the server-side client with proper session. Handles multipart form data, verifies auth, uploads to Supabase Storage
+- **AI engine bridge route (`/api/process/route.ts`):** Frontend triggers AI processing via this route, which forwards to the AI engine at `AI_ENGINE_URL` (defaults to `localhost:8000`, configurable for production)
+- **Frontend auto-trigger:** Photo upload component auto-triggers AI processing after successful upload (configurable toggle in UI)
+- **Storage RLS policy simplified:** Original `photographers_upload_own_photos` policy with folder-path subquery wasn't working with browser client. Replaced with simpler `authenticated_upload_photos` policy allowing any authenticated user to upload to the photos bucket
+- **Python 3.14 compatibility:** Resolved dependency conflicts — dropped rawpy 0.22.0 (no build), heavy Supabase SDK. Final requirements: fastapi, uvicorn, pillow, rawpy 0.26.1, numpy, opencv-python-headless, httpx, pydantic, pydantic-settings, python-dotenv
+- **File ref preservation:** Added `fileMapRef` in photo-upload component to preserve File objects across React re-renders (drag-and-drop files were losing references during state updates)
+- **End-to-end test passed:** Upload photo → AI engine downloads from Storage → runs all 6 phases → uploads edited/web/thumb variants → updates photo record with output keys → marks gallery as ready → updates job status. All DB updates return 200 OK
+
+### Next Session Priorities
+1. ~~**Wire up style training end-to-end:**~~ ✅ DONE — Reference photo upload via server-side `/api/upload` route → Storage → `/api/style` bridge route triggers AI engine training → style trainer downloads and analyses refs → saves style profile → auto-applies to all new uploads when selected. Style Profiles tab added to editing page with create/delete/retrain/training-status-polling. Processing Queue tab now polls for live progress via `setInterval`
+2. **GPU phases (2 & 3) — skin retouching + scene cleanup:** Integrate real models for Phase 2 (SAM 2 + face restoration for skin smoothing, blemish removal, stray hair, teeth whitening) and Phase 3 (inpainting for background person removal, exit signs, power lines, distractions). Host on Modal or Replicate for GPU inference. Orchestrator calls out to GPU service for these phases. This is critical — launching without retouching/cleanup would be an inferior product
+3. **Review Workspace loads real photos:** Review workspace currently uses mock data. Wire it to load real processed photos from Supabase Storage using `edited_key`/`web_key`/`thumb_key` paths. Show before/after using `original_key` vs `edited_key`
+4. **Fix click-to-browse button** in upload component (z-index issue)
+
+### Known Issues (to fix)
+- **Processing Queue doesn't poll:** The Processing Queue tab fires the process request but doesn't poll `/api/process/status/{job_id}` for live progress. Needs `setInterval` to show phase progression in real-time
+- **Cloud files fail upload:** Files synced via OneDrive/cloud that aren't fully downloaded locally cause `ERR_FAILED` on upload. Only locally-available files work
+- **Click-to-browse button not working:** The file picker "click to browse" area in the upload component is unresponsive (likely z-index issue). Drag-and-drop works fine
+
 ### Environment Variables (Vercel + .env.local)
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://ibugbyrbjabpveybuqsv.supabase.co
@@ -703,6 +806,13 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=[anon key]
 SUPABASE_SERVICE_ROLE_KEY=[service role key]
 RESEND_API_KEY=[resend api key — get from resend.com/api-keys]
 RESEND_FROM_EMAIL=[verified sender email — e.g. noreply@yourdomain.com]
+AI_ENGINE_URL=http://localhost:8000  # For Vercel production: https://your-railway-app.railway.app
+```
+
+### AI Engine Environment Variables (`services/ai-engine/.env`)
+```
+SUPABASE_URL=https://ibugbyrbjabpveybuqsv.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=[service role key]
 ```
 
 ### File Move Commands

@@ -137,10 +137,10 @@ def run_pipeline(
                     photo["id"],
                     exif_data=result["exif_data"],
                     scene_type=result["scene_type"],
-                    quality_score=result["quality_score"],
+                    quality_score=int(result["quality_score"]),
                     face_data=result["face_data"],
-                    width=result["width"],
-                    height=result["height"],
+                    width=int(result["width"]),
+                    height=int(result["height"]),
                     status="processing",
                 )
 
@@ -303,7 +303,7 @@ def run_pipeline(
                         width=outputs["full_width"],
                         height=outputs["full_height"],
                         status="edited",
-                        edit_confidence=result.get("quality_score", 75),
+                        edit_confidence=int(result.get("quality_score", 75)),
                         ai_edits={
                             "style_applied": style_profile is not None,
                             "composition": result.get("composition", {}),
@@ -332,7 +332,7 @@ def run_pipeline(
         complete_job(processing_job_id, processed_count)
 
         # Update gallery photo count
-        update_gallery(gallery_id, photo_count=processed_count, status="ready")
+        update_gallery(gallery_id, status="ready")
 
         # Update the shooting job status → ready_for_review
         if gallery and gallery.get("job"):

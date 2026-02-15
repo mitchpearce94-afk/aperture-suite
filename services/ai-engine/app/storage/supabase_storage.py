@@ -1,7 +1,6 @@
 """
-Supabase Storage helpers — download originals, upload processed outputs.
+Supabase Storage helpers — download originals, upload processed images.
 """
-import io
 import logging
 from typing import Optional
 from app.config import get_supabase, get_settings
@@ -14,8 +13,7 @@ def download_photo(storage_key: str) -> Optional[bytes]:
     try:
         sb = get_supabase()
         bucket = get_settings().storage_bucket
-        data = sb.storage.from_(bucket).download(storage_key)
-        return data
+        return sb.storage_download(bucket, storage_key)
     except Exception as e:
         log.error(f"Failed to download {storage_key}: {e}")
         return None
@@ -26,19 +24,8 @@ def upload_photo(storage_key: str, data: bytes, content_type: str = "image/jpeg"
     try:
         sb = get_supabase()
         bucket = get_settings().storage_bucket
-        sb.storage.from_(bucket).upload(
-            storage_key,
-            data,
-            file_options={"content-type": content_type, "cache-control": "3600", "upsert": "true"},
-        )
-        return storage_key
+        ok = sb.storage_upload(bucket, storage_key, data, content_type)
+        return storage_key if ok else None
     except Exception as e:
         log.error(f"Failed to upload {storage_key}: {e}")
         return None
-
-
-def get_public_url(storage_key: str) -> str:
-    """Get a public URL for a storage key."""
-    sb = get_supabase()
-    bucket = get_settings().storage_bucket
-    return sb.storage.from_(bucket).get_public_url(storage_key)

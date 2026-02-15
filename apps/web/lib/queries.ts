@@ -633,6 +633,8 @@ export async function createStyleProfile(profile: {
   name: string;
   description?: string;
   settings?: Record<string, unknown>;
+  reference_image_keys?: string[];
+  status?: string;
 }): Promise<StyleProfile | null> {
   const photographer = await getCurrentPhotographer();
   if (!photographer) {
@@ -646,8 +648,8 @@ export async function createStyleProfile(profile: {
     .insert({
       ...profile,
       photographer_id: photographer.id,
-      status: 'pending',
-      reference_image_keys: [],
+      status: profile.status || 'pending',
+      reference_image_keys: profile.reference_image_keys || [],
     })
     .select()
     .single();
@@ -722,30 +724,37 @@ export async function uploadPhotoToStorage(
   galleryId: string,
   onProgress?: (progress: number) => void
 ): Promise<{ storageKey: string; publicUrl: string } | null> {
-  const sb = supabase();
-
   // Path: photos/{photographer_id}/{gallery_id}/originals/{filename}
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
   const timestamp = Date.now();
   const storageKey = `${photographerId}/${galleryId}/originals/${timestamp}_${safeName}`;
 
-  const { data, error } = await sb.storage
-    .from('photos')
-    .upload(storageKey, file, {
-      cacheControl: '3600',
-      upsert: false,
+  // Upload via server-side API route (has proper auth session)
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('storageKey', storageKey);
+
+  try {
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData,
     });
 
-  if (error) {
-    console.error('Error uploading file:', error);
+    const result = await res.json();
+
+    if (!res.ok || result.error) {
+      console.error('Error uploading file:', result.error);
+      return null;
+    }
+
+    return {
+      storageKey: result.storageKey,
+      publicUrl: '',
+    };
+  } catch (err) {
+    console.error('Error uploading file:', err);
     return null;
   }
-
-  // Get the path (not public URL since bucket is private)
-  return {
-    storageKey: data.path,
-    publicUrl: '', // Private bucket — will use signed URLs when needed
-  };
 }
 
 export async function createPhotoRecord(photo: {

@@ -1,22 +1,23 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { getProcessingJobs } from '@/lib/queries';
 import type { ProcessingJob } from '@/lib/types';
 import { ProcessingCard } from '@/components/editing/editing-cards';
 import { ReviewWorkspace } from '@/components/editing/review-workspace';
 import { PhotoUpload } from '@/components/editing/photo-upload';
+import { StyleProfiles } from '@/components/editing/style-profiles';
 import {
   generateMockProcessingJobs,
   type ProcessingJobWithGallery,
 } from '@/components/editing/mock-data';
 import {
   Wand2, CheckCircle2, Sparkles, Eye,
-  Clock, Image as ImageIcon, Loader2,
+  Clock, Image as ImageIcon, Loader2, Palette,
 } from 'lucide-react';
 
-type TabId = 'upload' | 'queue' | 'review';
+type TabId = 'upload' | 'queue' | 'review' | 'styles';
 
 export default function EditingPage() {
   const [activeTab, setActiveTab] = useState<TabId>('upload');
@@ -24,6 +25,7 @@ export default function EditingPage() {
   const [loading, setLoading] = useState(true);
   const [reviewingJob, setReviewingJob] = useState<ProcessingJobWithGallery | null>(null);
   const [useMockData, setUseMockData] = useState(false);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -34,6 +36,7 @@ export default function EditingPage() {
         setUseMockData(true);
         setProcessingJobs(generateMockProcessingJobs());
       } else {
+        setUseMockData(false);
         setProcessingJobs(pjData as ProcessingJobWithGallery[]);
       }
     } catch (err) {
@@ -45,6 +48,76 @@ export default function EditingPage() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Poll for processing job status when on the queue tab
+  useEffect(() => {
+    if (activeTab !== 'queue') {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+      return;
+    }
+
+    const activeJobs = processingJobs.filter(
+      (j) => j.status === 'processing' || j.status === 'queued'
+    );
+
+    if (activeJobs.length > 0 && !pollingRef.current) {
+      pollingRef.current = setInterval(async () => {
+        // Poll status for each active job via the API bridge
+        for (const job of activeJobs) {
+          try {
+            const res = await fetch('/api/process', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'status', job_id: job.id }),
+            });
+            if (res.ok) {
+              const statusData = await res.json();
+              setProcessingJobs((prev) =>
+                prev.map((p) =>
+                  p.id === job.id
+                    ? {
+                        ...p,
+                        status: statusData.status,
+                        current_phase: statusData.current_phase,
+                        processed_images: statusData.processed_images ?? p.processed_images,
+                      }
+                    : p
+                )
+              );
+            }
+          } catch {
+            // AI engine not reachable — skip this poll
+          }
+        }
+
+        // Refresh full list if any job completed
+        const fresh = await getProcessingJobs();
+        if (fresh.length > 0) {
+          setProcessingJobs(fresh as ProcessingJobWithGallery[]);
+          setUseMockData(false);
+        }
+
+        // Stop polling if no more active jobs
+        const stillActive = fresh.some(
+          (j: ProcessingJob) => j.status === 'processing' || j.status === 'queued'
+        );
+        if (!stillActive && pollingRef.current) {
+          clearInterval(pollingRef.current);
+          pollingRef.current = null;
+        }
+      }, 4000); // Poll every 4 seconds
+    }
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
+  }, [activeTab, processingJobs]);
 
   if (loading) {
     return (
@@ -70,7 +143,7 @@ export default function EditingPage() {
         </div>
       </div>
 
-      {useMockData && (
+      {useMockData && activeTab !== 'styles' && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-300">
           <Sparkles className="w-3.5 h-3.5 flex-shrink-0" />
           <span>Showing demo data — processing jobs will appear here once you upload photos to a job.</span>
@@ -83,6 +156,7 @@ export default function EditingPage() {
           { id: 'upload' as TabId, label: 'Upload Photos', count: undefined },
           { id: 'queue' as TabId, label: 'Processing Queue', count: queuedCount > 0 ? queuedCount : undefined },
           { id: 'review' as TabId, label: 'Ready for Review', count: completedCount > 0 ? completedCount : undefined },
+          { id: 'styles' as TabId, label: 'Style Profiles', count: undefined },
         ]).map((tab) => (
           <button
             key={tab.id}
@@ -162,6 +236,9 @@ export default function EditingPage() {
           )}
         </div>
       )}
+
+      {/* Style Profiles tab */}
+      {activeTab === 'styles' && <StyleProfiles />}
     </div>
   );
 }

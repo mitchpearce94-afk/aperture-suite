@@ -8,7 +8,7 @@ import {
   Upload, X, Check, AlertCircle, Loader2, Camera, Sparkles,
 } from 'lucide-react';
 
-const MIN_IMAGES = 100;
+const MIN_IMAGES = 50;
 const RECOMMENDED_IMAGES = 200;
 const MAX_IMAGES = 300;
 
@@ -23,17 +23,19 @@ interface StyleUploadFile {
 interface CreateStyleFlowProps {
   open: boolean;
   onClose: () => void;
-  onCreate: (name: string, description: string, config: Record<string, any>, imageKeys: string[]) => void;
+  onCreated: (profileId: string) => void;
 }
 
-export function CreateStyleFlow({ open, onClose, onCreate }: CreateStyleFlowProps) {
-  const [step, setStep] = useState<'details' | 'upload'>('details');
+export function CreateStyleFlow({ open, onClose, onCreated }: CreateStyleFlowProps) {
+  const [step, setStep] = useState<'details' | 'upload' | 'training'>('details');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [files, setFiles] = useState<StyleUploadFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [dragOver, setDragOver] = useState(false);
+  const [trainingStatus, setTrainingStatus] = useState<'uploading' | 'starting' | 'training' | 'error' | null>(null);
+  const [trainingError, setTrainingError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const reset = () => {
@@ -43,6 +45,8 @@ export function CreateStyleFlow({ open, onClose, onCreate }: CreateStyleFlowProp
     setFiles([]);
     setUploading(false);
     setUploadProgress(0);
+    setTrainingStatus(null);
+    setTrainingError(null);
   };
 
   const handleClose = () => {
@@ -83,10 +87,14 @@ export function CreateStyleFlow({ open, onClose, onCreate }: CreateStyleFlowProp
 
     setUploading(true);
     setUploadProgress(0);
+    setTrainingStatus('uploading');
+    setTrainingError(null);
 
     try {
       const photographer = await getCurrentPhotographer();
       if (!photographer) {
+        setTrainingError('No photographer profile found');
+        setTrainingStatus('error');
         setUploading(false);
         return;
       }
@@ -94,6 +102,7 @@ export function CreateStyleFlow({ open, onClose, onCreate }: CreateStyleFlowProp
       const imageKeys: string[] = [];
       const styleFolderName = name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
 
+      // Upload each reference image via server-side API route
       for (let i = 0; i < files.length; i++) {
         const f = files[i];
         setFiles((prev) => prev.map((p) => p.id === f.id ? { ...p, status: 'uploading' } : p));
@@ -102,30 +111,78 @@ export function CreateStyleFlow({ open, onClose, onCreate }: CreateStyleFlowProp
           const safeName = f.file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
           const storageKey = `${photographer.id}/styles/${styleFolderName}/${Date.now()}_${safeName}`;
 
-          const { createClient } = await import('@/lib/supabase/client');
-          const sb = createClient();
-          const { data, error } = await sb.storage
-            .from('photos')
-            .upload(storageKey, f.file, { cacheControl: '3600', upsert: false });
+          // Upload via server-side route (bypasses browser auth cookie issue)
+          const formData = new FormData();
+          formData.append('file', f.file);
+          formData.append('storageKey', storageKey);
 
-          if (error) throw error;
+          const res = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+          });
 
-          imageKeys.push(data.path);
+          const result = await res.json();
+
+          if (!res.ok || result.error) {
+            throw new Error(result.error || 'Upload failed');
+          }
+
+          imageKeys.push(result.storageKey);
           setFiles((prev) => prev.map((p) => p.id === f.id ? { ...p, status: 'complete' } : p));
-        } catch {
+        } catch (err) {
+          console.error(`Failed to upload ${f.file.name}:`, err);
           setFiles((prev) => prev.map((p) => p.id === f.id ? { ...p, status: 'error' } : p));
         }
 
         setUploadProgress(Math.round(((i + 1) / files.length) * 100));
       }
 
-      onCreate(name, description, {}, imageKeys);
-      handleClose();
+      if (imageKeys.length < 10) {
+        setTrainingError(`Only ${imageKeys.length} images uploaded successfully — need at least 10 for training.`);
+        setTrainingStatus('error');
+        setUploading(false);
+        return;
+      }
+
+      // Trigger training via AI engine bridge route
+      setTrainingStatus('starting');
+
+      const trainRes = await fetch('/api/style', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create',
+          photographer_id: photographer.id,
+          name,
+          description: description || null,
+          reference_image_keys: imageKeys,
+        }),
+      });
+
+      const trainResult = await trainRes.json();
+
+      if (!trainRes.ok || trainResult.status === 'error') {
+        setTrainingError(trainResult.message || trainResult.error || 'Failed to start training');
+        setTrainingStatus('error');
+        setUploading(false);
+        return;
+      }
+
+      setTrainingStatus('training');
+      setStep('training');
+      setUploading(false);
+
+      // Pass the profile ID back to parent for polling
+      if (trainResult.id) {
+        onCreated(trainResult.id);
+      }
+
     } catch (err) {
       console.error('Style upload error:', err);
+      setTrainingError(err instanceof Error ? err.message : 'An unexpected error occurred');
+      setTrainingStatus('error');
+      setUploading(false);
     }
-
-    setUploading(false);
   };
 
   const imageCountStatus = files.length < MIN_IMAGES ? 'insufficient' : files.length < RECOMMENDED_IMAGES ? 'good' : 'excellent';
@@ -137,10 +194,10 @@ export function CreateStyleFlow({ open, onClose, onCreate }: CreateStyleFlowProp
       <div className="space-y-5">
         {/* Step indicators */}
         <div className="flex items-center gap-2">
-          {(['details', 'upload'] as const).map((s, i) => {
-            const labels = ['Name & Description', 'Upload Reference Images'];
+          {(['details', 'upload', 'training'] as const).map((s, i) => {
+            const labels = ['Name & Description', 'Upload Reference Images', 'Training'];
             const isCurrent = step === s;
-            const isComplete = step === 'upload' && i === 0;
+            const isComplete = (step === 'upload' && i === 0) || (step === 'training' && i < 2);
             return (
               <div key={s} className="flex items-center gap-2 flex-1">
                 <div className={`flex items-center gap-1.5 ${isCurrent ? 'text-indigo-400' : isComplete ? 'text-emerald-400' : 'text-slate-600'}`}>
@@ -149,9 +206,9 @@ export function CreateStyleFlow({ open, onClose, onCreate }: CreateStyleFlowProp
                   }`}>
                     {isComplete ? <Check className="w-3 h-3" /> : i + 1}
                   </div>
-                  <span className="text-[11px] font-medium">{labels[i]}</span>
+                  <span className="text-[10px] font-medium">{labels[i]}</span>
                 </div>
-                {i < 1 && <div className={`flex-1 h-px ${isComplete ? 'bg-emerald-500/30' : 'bg-white/[0.06]'}`} />}
+                {i < 2 && <div className={`flex-1 h-px ${isComplete ? 'bg-emerald-500/30' : 'bg-white/[0.06]'}`} />}
               </div>
             );
           })}
@@ -187,9 +244,9 @@ export function CreateStyleFlow({ open, onClose, onCreate }: CreateStyleFlowProp
                 <div>
                   <p className="text-xs font-medium text-slate-300">How it works</p>
                   <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                    Upload 100–300 of your best edited images and the AI will learn everything about your style — exposure, colour grading, 
-                    white balance, contrast, tone curves, skin tone handling, saturation, grain, sharpening, and how you keep everything 
-                    consistent across different scenes and lighting conditions. The more variety you give it, the better it handles edge cases.
+                    Upload 50–300 of your best edited images and the AI will learn everything about your style — exposure, colour grading, 
+                    white balance, contrast, tone curves, skin tone handling, saturation, and how you keep everything consistent across 
+                    different scenes and lighting conditions. The more variety you give it, the better it handles edge cases.
                   </p>
                 </div>
               </div>
@@ -310,7 +367,7 @@ export function CreateStyleFlow({ open, onClose, onCreate }: CreateStyleFlowProp
             </div>
 
             {/* Tips */}
-            {files.length < MIN_IMAGES && (
+            {files.length > 0 && files.length < MIN_IMAGES && (
               <div className="rounded-lg bg-white/[0.02] border border-white/[0.04] p-3">
                 <p className="text-[11px] font-medium text-slate-300 mb-1.5">For best results, include a mix of:</p>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[10px] text-slate-500">
@@ -330,7 +387,8 @@ export function CreateStyleFlow({ open, onClose, onCreate }: CreateStyleFlowProp
                 <div className="flex items-center gap-2 mb-2">
                   <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
                   <span className="text-xs font-medium text-indigo-300">
-                    Uploading reference images... {uploadProgress}%
+                    {trainingStatus === 'uploading' && `Uploading reference images... ${uploadProgress}%`}
+                    {trainingStatus === 'starting' && 'Starting AI training...'}
                   </span>
                 </div>
                 <div className="h-1.5 bg-indigo-500/10 rounded-full overflow-hidden">
@@ -339,14 +397,48 @@ export function CreateStyleFlow({ open, onClose, onCreate }: CreateStyleFlowProp
               </div>
             )}
 
+            {/* Error */}
+            {trainingStatus === 'error' && trainingError && (
+              <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-xs text-red-300 font-medium">Training failed</p>
+                  <p className="text-[11px] text-red-400/60 mt-0.5">{trainingError}</p>
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-between pt-2">
               <Button variant="ghost" size="sm" onClick={() => setStep('details')} disabled={uploading}>← Back</Button>
               <Button size="sm" onClick={handleSubmit} disabled={files.length < MIN_IMAGES || uploading}>
                 {uploading ? (
-                  <><Loader2 className="w-3 h-3 animate-spin" />Uploading...</>
+                  <><Loader2 className="w-3 h-3 animate-spin" />Processing...</>
                 ) : (
-                  <><Sparkles className="w-3 h-3" />Create & Start Training</>
+                  <><Sparkles className="w-3 h-3" />Upload & Start Training</>
                 )}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Training started */}
+        {step === 'training' && (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-6 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
+                <Sparkles className="w-6 h-6 text-emerald-400" />
+              </div>
+              <p className="text-sm font-medium text-emerald-300 mb-1">Training started!</p>
+              <p className="text-xs text-emerald-400/60 leading-relaxed">
+                The AI is now analysing your {files.filter(f => f.status === 'complete').length} reference images to learn your 
+                editing style. This usually takes a minute or two. You can close this dialog — the style will appear 
+                as &quot;Ready&quot; in your Style Profiles when training is complete.
+              </p>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <Button size="sm" onClick={handleClose}>
+                <Check className="w-3 h-3" />Done
               </Button>
             </div>
           </div>
