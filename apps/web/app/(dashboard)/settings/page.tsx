@@ -1325,9 +1325,9 @@ function EditingStyleSection({ photographerId }: { photographerId?: string }) {
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
           onClick={() => !uploading && fileInputRef.current?.click()}
-          className={`rounded-xl border-2 border-dashed transition-all cursor-pointer ${
+          className={`rounded-xl border-2 border-dashed transition-all ${
             dragOver ? 'border-indigo-500 bg-indigo-500/5' : 'border-white/[0.08] bg-white/[0.02] hover:border-white/[0.15]'
-          } ${uploading ? 'pointer-events-none opacity-60' : ''}`}
+          } ${uploading ? 'opacity-80' : 'cursor-pointer'}`}
         >
           <input
             ref={fileInputRef}
@@ -1358,7 +1358,7 @@ function EditingStyleSection({ photographerId }: { photographerId?: string }) {
                   </p>
                 </div>
               )}
-              <div className="grid grid-cols-8 sm:grid-cols-10 gap-1 max-h-72 overflow-y-auto pr-1">
+              <div className="grid grid-cols-8 sm:grid-cols-10 gap-1 max-h-72 overflow-y-scroll pr-1" onWheel={(e) => e.stopPropagation()}>
                 {files.map((f) => (
                   <div key={f.id} className="relative aspect-square rounded bg-white/[0.04] flex items-center justify-center group">
                     <Camera className={`w-3 h-3 ${
