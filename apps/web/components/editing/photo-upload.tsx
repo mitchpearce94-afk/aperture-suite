@@ -9,11 +9,12 @@ import {
   createPhotoRecord,
   createGalleryForJob,
   updateJob,
+  getStyleProfiles,
 } from '@/lib/queries';
-import type { Job } from '@/lib/types';
+import type { Job, StyleProfile } from '@/lib/types';
 import {
   Upload, X, Check, AlertCircle, Loader2, Camera,
-  FolderOpen, ChevronDown, ImageIcon, FileWarning,
+  FolderOpen, ChevronDown, ImageIcon, FileWarning, Sparkles, Wand2,
 } from 'lucide-react';
 
 interface UploadFile {
@@ -61,14 +62,23 @@ export function PhotoUpload({ onUploadComplete }: PhotoUploadProps) {
   const [files, setFiles] = useState<UploadFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadComplete, setUploadComplete] = useState(false);
+  const [processingTriggered, setProcessingTriggered] = useState(false);
+  const [processingError, setProcessingError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [loadingJobs, setLoadingJobs] = useState(true);
+  const [styleProfiles, setStyleProfiles] = useState<StyleProfile[]>([]);
+  const [selectedStyleId, setSelectedStyleId] = useState<string>('');
+  const [autoProcess, setAutoProcess] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     async function load() {
-      const data = await getUploadableJobs();
-      setJobs(data);
+      const [jobData, profileData] = await Promise.all([
+        getUploadableJobs(),
+        getStyleProfiles(),
+      ]);
+      setJobs(jobData);
+      setStyleProfiles(profileData.filter((p) => p.status === 'ready'));
       setLoadingJobs(false);
     }
     load();
@@ -122,6 +132,8 @@ export function PhotoUpload({ onUploadComplete }: PhotoUploadProps) {
   const clearAll = () => {
     setFiles([]);
     setUploadComplete(false);
+    setProcessingTriggered(false);
+    setProcessingError(null);
   };
 
   const startUpload = async () => {
@@ -202,6 +214,31 @@ export function PhotoUpload({ onUploadComplete }: PhotoUploadProps) {
 
       // Update gallery with photo count
       setUploadComplete(true);
+
+      // Auto-trigger AI processing pipeline
+      if (autoProcess && gallery) {
+        setProcessingTriggered(true);
+        setProcessingError(null);
+        try {
+          const processRes = await fetch('/api/process', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'process',
+              gallery_id: gallery.id,
+              style_profile_id: selectedStyleId || null,
+              included_images: selectedJob.included_images || null,
+            }),
+          });
+          const processResult = await processRes.json();
+          if (!processRes.ok || processResult.status === 'error') {
+            setProcessingError(processResult.message || processResult.error || 'Failed to start processing');
+          }
+        } catch (err) {
+          setProcessingError('AI Engine not reachable. Start it locally or check Railway deployment.');
+        }
+      }
+
       onUploadComplete();
     } catch (err) {
       console.error('Upload error:', err);
@@ -289,9 +326,50 @@ export function PhotoUpload({ onUploadComplete }: PhotoUploadProps) {
         )}
       </div>
 
-      {/* Step 2: Drop zone */}
+      {/* Step 2: Style Profile (optional) */}
+      {selectedJob && (
+        <div>
+          <label className="block text-xs font-medium text-slate-400 mb-2">2. Choose a style profile <span className="text-slate-600">(optional)</span></label>
+          {styleProfiles.length === 0 ? (
+            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 flex items-start gap-2">
+              <Sparkles className="w-3.5 h-3.5 text-slate-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-[11px] text-slate-500">No trained styles yet. Photos will be processed without style matching.</p>
+                <p className="text-[10px] text-slate-600 mt-0.5">Create a style profile in the Style Profiles tab to apply your editing look automatically.</p>
+              </div>
+            </div>
+          ) : (
+            <select
+              value={selectedStyleId}
+              onChange={(e) => setSelectedStyleId(e.target.value)}
+              disabled={uploading}
+              className="w-full px-3 py-2.5 text-sm bg-white/[0.04] border border-white/[0.08] rounded-lg text-slate-300 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 disabled:opacity-50"
+            >
+              <option value="">No style — process without colour grading</option>
+              {styleProfiles.map((sp) => (
+                <option key={sp.id} value={sp.id}>{sp.name}{sp.description ? ` — ${sp.description}` : ''}</option>
+              ))}
+            </select>
+          )}
+
+          {/* Auto-process toggle */}
+          <div className="flex items-center gap-2 mt-3">
+            <button
+              onClick={() => setAutoProcess(!autoProcess)}
+              className={`relative w-8 h-[18px] rounded-full transition-colors ${autoProcess ? 'bg-indigo-500' : 'bg-white/[0.1]'}`}
+            >
+              <div className={`absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white transition-transform ${autoProcess ? 'left-[16px]' : 'left-[2px]'}`} />
+            </button>
+            <span className="text-[11px] text-slate-400">
+              {autoProcess ? 'Auto-process after upload' : 'Upload only — process manually later'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Step 3: Drop zone */}
       <div>
-        <label className="block text-xs font-medium text-slate-400 mb-2">2. Add your photos</label>
+        <label className="block text-xs font-medium text-slate-400 mb-2">{selectedJob ? '3' : '2'}. Add your photos</label>
         <div
           onDrop={handleDrop}
           onDragOver={handleDragOver}
@@ -409,15 +487,42 @@ export function PhotoUpload({ onUploadComplete }: PhotoUploadProps) {
 
       {/* Complete message */}
       {uploadComplete && (
-        <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 flex items-start gap-2">
-          <CheckCircle className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="text-xs text-emerald-300 font-medium">Upload complete!</p>
-            <p className="text-[11px] text-emerald-400/60 mt-0.5">
-              {completedCount} photos uploaded. Job status changed to &quot;Editing&quot;.
-              {errorCount > 0 && ` ${errorCount} files failed — you can retry them.`}
-            </p>
+        <div className="space-y-2">
+          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 flex items-start gap-2">
+            <CheckCircle className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-xs text-emerald-300 font-medium">Upload complete!</p>
+              <p className="text-[11px] text-emerald-400/60 mt-0.5">
+                {completedCount} photos uploaded. Job status changed to &quot;Editing&quot;.
+                {errorCount > 0 && ` ${errorCount} files failed — you can retry them.`}
+              </p>
+            </div>
           </div>
+
+          {/* AI Processing status */}
+          {processingTriggered && !processingError && (
+            <div className="rounded-lg border border-indigo-500/20 bg-indigo-500/5 p-3 flex items-start gap-2">
+              <Wand2 className="w-4 h-4 text-indigo-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-xs text-indigo-300 font-medium">AI processing started</p>
+                <p className="text-[11px] text-indigo-400/60 mt-0.5">
+                  {selectedStyleId ? 'Applying your style profile and processing all phases.' : 'Processing without style — analysis, composition, and output generation.'}
+                  {' '}Check the Processing Queue tab for live progress.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {processingError && (
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-xs text-amber-300 font-medium">AI processing could not start</p>
+                <p className="text-[11px] text-amber-400/60 mt-0.5">{processingError}</p>
+                <p className="text-[10px] text-amber-500/50 mt-1">Photos uploaded successfully — you can trigger processing manually later from the Processing Queue.</p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
