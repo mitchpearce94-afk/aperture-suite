@@ -1007,6 +1007,17 @@ function EditingStyleSection({ photographerId }: { photographerId?: string }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Warn user if they try to leave during upload
+  useEffect(() => {
+    if (!uploading) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [uploading]);
+
   const loadStyle = useCallback(async () => {
     try {
       const profiles = await getStyleProfiles();
@@ -1277,11 +1288,31 @@ function EditingStyleSection({ photographerId }: { photographerId?: string }) {
                   </p>
                 </div>
               </div>
+              {styleStatus === 'ready' && profileId && (
+                <button
+                  onClick={async () => {
+                    setStyleStatus('training');
+                    try {
+                      await fetch('/api/style', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'retrain', profile_id: profileId }),
+                      });
+                    } catch {}
+                  }}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-white/[0.08] bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] hover:text-white transition-all"
+                >
+                  Retrain
+                </button>
+              )}
             </div>
 
             {/* Training comments from the AI trainee */}
             {(styleStatus === 'training' || styleStatus === 'pending') && (
-              <TraineeComments />
+              <>
+                <TraineeComments />
+                <p className="text-[10px] text-amber-400/40 mt-2 ml-8">Training happens in the background — feel free to leave and come back anytime.</p>
+              </>
             )}
 
             {/* Success message when training completes */}
@@ -1456,6 +1487,12 @@ function EditingStyleSection({ photographerId }: { photographerId?: string }) {
             <div className="h-1.5 bg-indigo-500/10 rounded-full overflow-hidden">
               <div className="h-full bg-indigo-500 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
             </div>
+            {uploadPhase !== 'starting' && (
+              <p className="text-[10px] text-indigo-400/60 mt-2">Please don&apos;t close or leave this page while uploading. Training will continue in the background once uploads finish.</p>
+            )}
+            {uploadPhase === 'starting' && (
+              <p className="text-[10px] text-indigo-400/60 mt-2">You&apos;re free to leave this page now — training happens in the background. Come back anytime to check progress.</p>
+            )}
           </div>
         )}
 

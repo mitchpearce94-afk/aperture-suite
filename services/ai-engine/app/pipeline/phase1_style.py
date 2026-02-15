@@ -141,7 +141,7 @@ def histogram_match_channel(source: np.ndarray, target_hist: np.ndarray) -> np.n
     return mapping[source]
 
 
-def apply_style(img_array: np.ndarray, style_profile: dict, intensity: float = 0.75) -> np.ndarray:
+def apply_style(img_array: np.ndarray, style_profile: dict, intensity: float = 0.55) -> np.ndarray:
     """
     Apply a learned style profile to an image.
 
@@ -159,16 +159,29 @@ def apply_style(img_array: np.ndarray, style_profile: dict, intensity: float = 0
     original = img_array.copy()
     result = img_array.copy().astype(float)
 
+    # Build skin mask to protect skin tones from aggressive shifts
+    hsv_orig = cv2.cvtColor(img_array, cv2.COLOR_BGR2HSV)
+    ycrcb = cv2.cvtColor(img_array, cv2.COLOR_BGR2YCrCb)
+    # Skin detection in YCrCb (more reliable across lighting)
+    skin_mask = (
+        (ycrcb[:, :, 1] >= 133) & (ycrcb[:, :, 1] <= 173) &
+        (ycrcb[:, :, 2] >= 77) & (ycrcb[:, :, 2] <= 127)
+    ).astype(float)
+    # Blur mask for smooth transitions
+    skin_mask = cv2.GaussianBlur(skin_mask, (21, 21), 0)
+    # Reduce intensity on skin areas (apply only 40% of the style shift to skin)
+    skin_protection = 1.0 - (skin_mask * 0.6)
+
     # 1. Histogram matching per BGR channel
     for i, name in enumerate(["b", "g", "r"]):
         hist_key = f"hist_{name}"
         if hist_key in style_profile:
             target_hist = np.array(style_profile[hist_key])
-            matched = histogram_match_channel(img_array[:, :, i], target_hist)
-            result[:, :, i] = matched
+            matched = histogram_match_channel(img_array[:, :, i], target_hist).astype(float)
+            # Apply with skin protection — less matching on skin
+            channel_intensity = intensity * skin_protection
+            result[:, :, i] = original[:, :, i].astype(float) * (1 - channel_intensity) + matched * channel_intensity
 
-    # Blend with original based on intensity
-    result = (original.astype(float) * (1 - intensity) + result * intensity)
     result = np.clip(result, 0, 255).astype(np.uint8)
 
     # 2. White balance adjustment
@@ -181,7 +194,7 @@ def apply_style(img_array: np.ndarray, style_profile: dict, intensity: float = 0
         target_b = style_profile["wb_b"]
 
         # Shift a/b channels toward target (scaled by intensity)
-        wb_strength = intensity * 0.5  # WB is subtle — don't overcorrect
+        wb_strength = intensity * 0.35  # WB is subtle — don't overcorrect
         lab[:, :, 1] += (target_a - current_a) * wb_strength
         lab[:, :, 2] += (target_b - current_b) * wb_strength
         lab = np.clip(lab, 0, 255).astype(np.uint8)
@@ -197,8 +210,8 @@ def apply_style(img_array: np.ndarray, style_profile: dict, intensity: float = 0
         if current_sat > 0:
             sat_ratio = target_sat / (current_sat + 1e-6)
             # Limit range to avoid extreme shifts
-            sat_ratio = max(0.5, min(2.0, sat_ratio))
-            sat_adjustment = 1.0 + (sat_ratio - 1.0) * intensity * 0.6
+            sat_ratio = max(0.7, min(1.5, sat_ratio))
+            sat_adjustment = 1.0 + (sat_ratio - 1.0) * intensity * 0.5
             hsv[:, :, 1] *= sat_adjustment
             hsv = np.clip(hsv, 0, 255).astype(np.uint8)
             result = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
@@ -214,7 +227,7 @@ def apply_style(img_array: np.ndarray, style_profile: dict, intensity: float = 0
         # Lift shadows if the reference style has lifted shadows
         if target_shadow > current_shadow:
             shadow_mask = (L < 85).astype(float)
-            lift = (target_shadow - current_shadow) * intensity * 0.4
+            lift = (target_shadow - current_shadow) * intensity * 0.3
             L += shadow_mask * lift
 
         lab[:, :, 0] = np.clip(L, 0, 255)
