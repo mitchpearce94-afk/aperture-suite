@@ -10,7 +10,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input, Select, Textarea } from '@/components/ui/form-fields';
 import { Combobox } from '@/components/ui/combobox';
 import { formatDate, initials, cn, formatCurrency } from '@/lib/utils';
-import { getLeads, getClients, createLead, updateLead, deleteLead, getCurrentPhotographer, createNewClient } from '@/lib/queries';
+import { getLeads, getClients, createLead, updateLead, deleteLead, getCurrentPhotographer, createNewClient, getPackages } from '@/lib/queries';
 import { Inbox, Plus, LayoutGrid, List, Calendar as CalendarIcon, Pencil, Trash2, MapPin, User, MessageSquare } from 'lucide-react';
 import type { Lead, LeadStatus, Client } from '@/lib/types';
 
@@ -142,10 +142,19 @@ export default function LeadsPage() {
     ]);
     if (photographer) {
       setPhotographerId(photographer.id);
-      try {
-        const savedPkgs = localStorage.getItem(`packages_${photographer.id}`);
-        if (savedPkgs) setPackages(JSON.parse(savedPkgs).filter((p: PackageItem) => p.is_active));
-      } catch {}
+      const pkgs = await getPackages(true);
+      setPackages(pkgs.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description || '',
+        price: Number(p.price),
+        duration_hours: Number(p.duration_hours),
+        included_images: p.included_images,
+        deliverables: p.deliverables || '',
+        is_active: p.is_active,
+        require_deposit: p.require_deposit,
+        deposit_percent: p.deposit_percent,
+      })));
     }
     setLeads(leadsData.sort((a, b) => {
       if (!a.preferred_date && !b.preferred_date) return 0;

@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apelier — Brand Style Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Manrope:wght@200;300;400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #fff; color: #1a1a1a; font-family: 'DM Sans', sans-serif; font-size: 14px; line-height: 1.6; }
+  
+  .page { max-width: 900px; margin: 0 auto; padding: 60px 40px; }
+  
+  /* Cover */
+  .cover { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #faf9f7; text-align: center; margin: -60px -40px 0; padding: 80px 40px; }
+  .cover-wordmark { font-family: 'Libre Baskerville', serif; font-size: 72px; color: #1a1a1a; letter-spacing: 2px; margin-top: 30px; }
+  .cover-tagline { font-family: 'Manrope', sans-serif; font-weight: 300; font-size: 14px; letter-spacing: 8px; text-transform: uppercase; color: #b5a999; margin-top: 18px; }
+  .cover-sub { font-family: 'Manrope', sans-serif; font-weight: 300; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: #ccc; margin-top: 60px; }
+
+  /* Sections */
+  .section { margin-top: 80px; padding-top: 40px; border-top: 1px solid #f0ece5; }
+  .section:first-of-type { border-top: none; }
+  .section-num { font-family: 'Manrope', sans-serif; font-weight: 200; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: #c47d4a; margin-bottom: 8px; }
+  .section-title { font-family: 'Libre Baskerville', serif; font-size: 28px; color: #1a1a1a; margin-bottom: 20px; }
+  .section-body { color: #666; line-height: 1.8; max-width: 680px; }
+  .section-body p { margin-bottom: 14px; }
+
+  /* Logo display */
+  .logo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; margin: 30px 0; }
+  .logo-cell { aspect-ratio: 16/10; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+  .logo-cell.lt { background: #faf9f7; }
+  .logo-cell.dk { background: #0e0e10; }
+  .logo-cell .cap { position: absolute; bottom: 10px; left: 14px; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; opacity: 0.3; }
+  .logo-cell.dk .cap { color: #fff; }
+  .lockup { display: flex; align-items: center; gap: 14px; }
+  .wordmark { font-family: 'Libre Baskerville', serif; font-weight: 400; font-size: 36px; letter-spacing: 1px; }
+  .wordmark-sm { font-family: 'Libre Baskerville', serif; font-weight: 400; font-size: 20px; letter-spacing: 0.5px; }
+  .tagline-sm { font-family: 'Manrope', sans-serif; font-weight: 300; font-size: 8px; letter-spacing: 5px; text-transform: uppercase; margin-top: 10px; }
+
+  /* Colour swatches */
+  .swatch-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 30px 0; }
+  .swatch { text-align: center; }
+  .swatch-box { aspect-ratio: 1; border-radius: 12px; margin-bottom: 10px; border: 1px solid rgba(0,0,0,0.05); }
+  .swatch-name { font-family: 'Manrope', sans-serif; font-weight: 500; font-size: 11px; margin-bottom: 2px; }
+  .swatch-hex { font-family: 'DM Sans', sans-serif; font-size: 10px; color: #999; }
+  .swatch-use { font-family: 'DM Sans', sans-serif; font-size: 9px; color: #bbb; margin-top: 2px; }
+
+  /* Typography specimens */
+  .type-specimen { margin: 30px 0; padding: 30px; background: #faf9f7; border-radius: 8px; }
+  .type-row { display: flex; align-items: baseline; gap: 20px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #f0ece5; }
+  .type-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .type-label { width: 120px; flex-shrink: 0; font-family: 'Manrope', sans-serif; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #b5a999; }
+  .type-sample { flex: 1; }
+
+  /* Spacing / clear space */
+  .clearspace { display: flex; justify-content: center; margin: 30px 0; }
+  .cs-box { position: relative; padding: 40px; border: 1px dashed rgba(196,125,74,0.3); }
+  .cs-label { position: absolute; font-size: 8px; color: #c47d4a; letter-spacing: 1px; }
+  .cs-top { top: 4px; left: 50%; transform: translateX(-50%); }
+  .cs-right { right: 4px; top: 50%; transform: translateY(-50%) rotate(90deg); }
+  .cs-bottom { bottom: 4px; left: 50%; transform: translateX(-50%); }
+  .cs-left { left: 4px; top: 50%; transform: translateY(-50%) rotate(-90deg); }
+
+  /* Do/Don't */
+  .dos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 30px 0; }
+  .do-cell { padding: 20px; border-radius: 8px; }
+  .do-cell.do { background: #f0faf0; border: 1px solid #c5e8c5; }
+  .do-cell.dont { background: #faf0f0; border: 1px solid #e8c5c5; }
+  .do-label { font-family: 'Manrope', sans-serif; font-weight: 600; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+  .do-cell.do .do-label { color: #4a8c4a; }
+  .do-cell.dont .do-label { color: #8c4a4a; }
+  .do-cell p { font-size: 12px; color: #666; line-height: 1.6; }
+
+  /* File list */
+  .file-list { margin: 20px 0; }
+  .file-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f5f2ee; }
+  .file-icon { width: 36px; height: 36px; border-radius: 8px; background: #faf9f7; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #c47d4a; font-weight: 600; flex-shrink: 0; }
+  .file-name { font-family: 'Manrope', sans-serif; font-weight: 500; font-size: 13px; }
+  .file-desc { font-size: 11px; color: #999; }
+
+  @media print {
+    .page { padding: 40px 30px; }
+    .cover { min-height: auto; padding: 120px 40px; page-break-after: always; }
+    .section { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- COVER -->
+  <div class="cover">
+    <svg width="80" height="80" viewBox="0 0 44 44" fill="none">
+      <rect x="5" y="9" width="34" height="26" rx="2" stroke="#d4a574" stroke-width="0.5" opacity="0.25"/>
+      <rect x="29" y="4.5" width="6" height="3.5" rx="0.8" stroke="#d4a574" stroke-width="0.5" opacity="0.25"/>
+      <path d="M22 3.5 L25.5 15.5 L22 13 Z" fill="#c47d4a" opacity="0.95"/>
+      <path d="M38 11 L29 19 L28.5 14.5 Z" fill="#d4a574" opacity="0.7"/>
+      <path d="M38 33 L28 25.5 L29.5 21 Z" fill="#c47d4a" opacity="0.55"/>
+      <path d="M22 40.5 L18.5 28.5 L22 31 Z" fill="#d4a574" opacity="0.95"/>
+      <path d="M6 33 L15 25.5 L15.5 30 Z" fill="#c47d4a" opacity="0.7"/>
+      <path d="M6 11 L16 19 L14.5 23.5 Z" fill="#d4a574" opacity="0.55"/>
+      <circle cx="22" cy="22" r="4" fill="#c47d4a"/>
+    </svg>
+    <div class="cover-wordmark">Apelier</div>
+    <div class="cover-tagline">Shoot · Edit · Deliver</div>
+    <div class="cover-sub">Brand Style Guide — 2026</div>
+  </div>
+
+  <!-- 01 BRAND OVERVIEW -->
+  <div class="section">
+    <div class="section-num">01</div>
+    <div class="section-title">Brand Overview</div>
+    <div class="section-body">
+      <p>Apelier is an all-in-one photography business platform. The name blends <em>aperture</em> (the heart of every lens) with <em>atelier</em> (a creative workshop), positioning the product as the place where photographers do their best work — from shoot to delivery.</p>
+      <p>The brand voice is <strong>premium but approachable</strong>, <strong>confident but not loud</strong>. We speak to professional photographers who value craft, efficiency, and a beautiful client experience.</p>
+      <p><strong>Tagline:</strong> Shoot. Edit. Deliver.</p>
+      <p><strong>Website:</strong> apelier.com.au</p>
+    </div>
+  </div>
+
+  <!-- 02 LOGO -->
+  <div class="section">
+    <div class="section-num">02</div>
+    <div class="section-title">Logo</div>
+    <div class="section-body">
+      <p>The Apelier logo consists of two elements: the <strong>aperture mark</strong> (a six-blade aperture icon with a ghost camera silhouette) and the <strong>wordmark</strong> (set in Libre Baskerville). These always appear together in the primary lockup. The mark may be used standalone as a favicon or app icon.</p>
+    </div>
+
+    <div class="logo-grid">
+      <!-- Primary Light -->
+      <div class="logo-cell lt">
+        <div class="lockup">
+          <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
+            <rect x="5" y="9" width="34" height="26" rx="2" stroke="#d4a574" stroke-width="0.5" opacity="0.25"/>
+            <rect x="29" y="4.5" width="6" height="3.5" rx="0.8" stroke="#d4a574" stroke-width="0.5" opacity="0.25"/>
+            <path d="M22 3.5 L25.5 15.5 L22 13 Z" fill="#c47d4a" opacity="0.95"/>
+            <path d="M38 11 L29 19 L28.5 14.5 Z" fill="#d4a574" opacity="0.7"/>
+            <path d="M38 33 L28 25.5 L29.5 21 Z" fill="#c47d4a" opacity="0.55"/>
+            <path d="M22 40.5 L18.5 28.5 L22 31 Z" fill="#d4a574" opacity="0.95"/>
+            <path d="M6 33 L15 25.5 L15.5 30 Z" fill="#c47d4a" opacity="0.7"/>
+            <path d="M6 11 L16 19 L14.5 23.5 Z" fill="#d4a574" opacity="0.55"/>
+            <circle cx="22" cy="22" r="4" fill="#c47d4a"/>
+          </svg>
+          <span class="wordmark" style="color:#1a1a1a;">Apelier</span>
+        </div>
+        <div class="tagline-sm" style="color:#b5a999;">Shoot · Edit · Deliver</div>
+        <div class="cap">Primary — Light</div>
+      </div>
+      <!-- Primary Dark -->
+      <div class="logo-cell dk">
+        <div class="lockup">
+          <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
+            <rect x="5" y="9" width="34" height="26" rx="2" stroke="#d4a574" stroke-width="0.5" opacity="0.15"/>
+            <rect x="29" y="4.5" width="6" height="3.5" rx="0.8" stroke="#d4a574" stroke-width="0.5" opacity="0.15"/>
+            <path d="M22 3.5 L25.5 15.5 L22 13 Z" fill="#c47d4a" opacity="0.95"/>
+            <path d="M38 11 L29 19 L28.5 14.5 Z" fill="#d4a574" opacity="0.7"/>
+            <path d="M38 33 L28 25.5 L29.5 21 Z" fill="#c47d4a" opacity="0.55"/>
+            <path d="M22 40.5 L18.5 28.5 L22 31 Z" fill="#d4a574" opacity="0.95"/>
+            <path d="M6 33 L15 25.5 L15.5 30 Z" fill="#c47d4a" opacity="0.7"/>
+            <path d="M6 11 L16 19 L14.5 23.5 Z" fill="#d4a574" opacity="0.55"/>
+            <circle cx="22" cy="22" r="4" fill="#c47d4a"/>
+          </svg>
+          <span class="wordmark" style="color:#fff;">Apelier</span>
+        </div>
+        <div class="tagline-sm" style="color:#4a453f;">Shoot · Edit · Deliver</div>
+        <div class="cap" style="color:#fff;">Primary — Dark</div>
+      </div>
+      <!-- Mark only Light -->
+      <div class="logo-cell lt">
+        <svg width="60" height="60" viewBox="0 0 44 44" fill="none">
+          <rect x="5" y="9" width="34" height="26" rx="2" stroke="#d4a574" stroke-width="0.5" opacity="0.25"/>
+          <rect x="29" y="4.5" width="6" height="3.5" rx="0.8" stroke="#d4a574" stroke-width="0.5" opacity="0.25"/>
+          <path d="M22 3.5 L25.5 15.5 L22 13 Z" fill="#c47d4a" opacity="0.95"/>
+          <path d="M38 11 L29 19 L28.5 14.5 Z" fill="#d4a574" opacity="0.7"/>
+          <path d="M38 33 L28 25.5 L29.5 21 Z" fill="#c47d4a" opacity="0.55"/>
+          <path d="M22 40.5 L18.5 28.5 L22 31 Z" fill="#d4a574" opacity="0.95"/>
+          <path d="M6 33 L15 25.5 L15.5 30 Z" fill="#c47d4a" opacity="0.7"/>
+          <path d="M6 11 L16 19 L14.5 23.5 Z" fill="#d4a574" opacity="0.55"/>
+          <circle cx="22" cy="22" r="4" fill="#c47d4a"/>
+        </svg>
+        <div class="cap">Mark Only</div>
+      </div>
+      <!-- Navbar -->
+      <div class="logo-cell dk">
+        <div class="lockup">
+          <svg width="24" height="24" viewBox="0 0 44 44" fill="none">
+            <rect x="5" y="9" width="34" height="26" rx="2" stroke="#d4a574" stroke-width="0.7" opacity="0.15"/>
+            <rect x="29" y="4.5" width="6" height="3.5" rx="0.8" stroke="#d4a574" stroke-width="0.7" opacity="0.15"/>
+            <path d="M22 3.5 L25.5 15.5 L22 13 Z" fill="#c47d4a" opacity="0.95"/>
+            <path d="M38 11 L29 19 L28.5 14.5 Z" fill="#d4a574" opacity="0.7"/>
+            <path d="M38 33 L28 25.5 L29.5 21 Z" fill="#c47d4a" opacity="0.55"/>
+            <path d="M22 40.5 L18.5 28.5 L22 31 Z" fill="#d4a574" opacity="0.95"/>
+            <path d="M6 33 L15 25.5 L15.5 30 Z" fill="#c47d4a" opacity="0.7"/>
+            <path d="M6 11 L16 19 L14.5 23.5 Z" fill="#d4a574" opacity="0.55"/>
+            <circle cx="22" cy="22" r="4" fill="#c47d4a"/>
+          </svg>
+          <span class="wordmark-sm" style="color:#fff;">Apelier</span>
+        </div>
+        <div class="cap" style="color:#fff;">Navbar Size</div>
+      </div>
+    </div>
+
+    <!-- Clear space -->
+    <div class="section-body"><p><strong>Clear space:</strong> Maintain a minimum clear space equal to the height of the centre dot around all sides of the logo. Never crowd the logo with other elements.</p></div>
+    <div class="clearspace">
+      <div class="cs-box">
+        <span class="cs-label cs-top">1x</span>
+        <span class="cs-label cs-right">1x</span>
+        <span class="cs-label cs-bottom">1x</span>
+        <span class="cs-label cs-left">1x</span>
+        <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
+          <rect x="5" y="9" width="34" height="26" rx="2" stroke="#d4a574" stroke-width="0.5" opacity="0.25"/>
+          <rect x="29" y="4.5" width="6" height="3.5" rx="0.8" stroke="#d4a574" stroke-width="0.5" opacity="0.25"/>
+          <path d="M22 3.5 L25.5 15.5 L22 13 Z" fill="#c47d4a" opacity="0.95"/>
+          <path d="M38 11 L29 19 L28.5 14.5 Z" fill="#d4a574" opacity="0.7"/>
+          <path d="M38 33 L28 25.5 L29.5 21 Z" fill="#c47d4a" opacity="0.55"/>
+          <path d="M22 40.5 L18.5 28.5 L22 31 Z" fill="#d4a574" opacity="0.95"/>
+          <path d="M6 33 L15 25.5 L15.5 30 Z" fill="#c47d4a" opacity="0.7"/>
+          <path d="M6 11 L16 19 L14.5 23.5 Z" fill="#d4a574" opacity="0.55"/>
+          <circle cx="22" cy="22" r="4" fill="#c47d4a"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Do / Don't -->
+    <div class="dos-grid">
+      <div class="do-cell do"><div class="do-label">✓ Do</div><p>Use the logo on cream (#FAF9F7) or dark (#0E0E10) backgrounds. Keep the aperture mark and wordmark together. Use approved colour variants only.</p></div>
+      <div class="do-cell dont"><div class="do-label">✕ Don't</div><p>Don't rotate, stretch, or skew the logo. Don't change the blade colours. Don't place on busy photographic backgrounds without sufficient contrast. Don't remove the ghost camera from the mark.</p></div>
+    </div>
+  </div>
+
+  <!-- 03 COLOUR -->
+  <div class="section">
+    <div class="section-num">03</div>
+    <div class="section-title">Colour Palette</div>
+    <div class="section-body">
+      <p>The palette is built around warm golds and neutral tones. Gold is the brand's signature colour — used for the aperture mark, primary CTAs, and accent elements. The palette works equally well on light and dark backgrounds.</p>
+    </div>
+
+    <div class="swatch-row">
+      <div class="swatch">
+        <div class="swatch-box" style="background:#c47d4a;"></div>
+        <div class="swatch-name">Gold</div>
+        <div class="swatch-hex">#C47D4A</div>
+        <div class="swatch-use">Primary brand · CTAs · Mark</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#d4a574;"></div>
+        <div class="swatch-name">Gold Light</div>
+        <div class="swatch-hex">#D4A574</div>
+        <div class="swatch-use">Secondary blades · Accents</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#faf9f7;"></div>
+        <div class="swatch-name">Cream</div>
+        <div class="swatch-hex">#FAF9F7</div>
+        <div class="swatch-use">Light backgrounds</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#1a1a1a;"></div>
+        <div class="swatch-name">Ink</div>
+        <div class="swatch-hex">#1A1A1A</div>
+        <div class="swatch-use">Text · Dark wordmark</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#0e0e10;"></div>
+        <div class="swatch-name">Night</div>
+        <div class="swatch-hex">#0E0E10</div>
+        <div class="swatch-use">Dark backgrounds</div>
+      </div>
+    </div>
+    <div class="swatch-row">
+      <div class="swatch">
+        <div class="swatch-box" style="background:#b5a999;"></div>
+        <div class="swatch-name">Warm Grey</div>
+        <div class="swatch-hex">#B5A999</div>
+        <div class="swatch-use">Taglines · Muted text</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#f0ece5;"></div>
+        <div class="swatch-name">Sand</div>
+        <div class="swatch-hex">#F0ECE5</div>
+        <div class="swatch-use">Borders · Dividers</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#4a453f;"></div>
+        <div class="swatch-name">Dark Warm</div>
+        <div class="swatch-hex">#4A453F</div>
+        <div class="swatch-use">Dark mode muted text</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#a06835;"></div>
+        <div class="swatch-name">Gold Dark</div>
+        <div class="swatch-hex">#A06835</div>
+        <div class="swatch-use">Hover states · Emphasis</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#fff;border-color:#eee;"></div>
+        <div class="swatch-name">White</div>
+        <div class="swatch-hex">#FFFFFF</div>
+        <div class="swatch-use">Cards · Clean backgrounds</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 04 TYPOGRAPHY -->
+  <div class="section">
+    <div class="section-num">04</div>
+    <div class="section-title">Typography</div>
+    <div class="section-body">
+      <p>Two typefaces form the brand's typographic system. <strong>Libre Baskerville</strong> is the display face — used for the wordmark, headings, and anywhere the brand needs to feel premium and editorial. <strong>Manrope</strong> is the utility face — used for taglines, navigation, labels, and UI elements.</p>
+    </div>
+
+    <div class="type-specimen">
+      <div class="type-row">
+        <div class="type-label">Display<br>Libre Baskerville</div>
+        <div class="type-sample">
+          <div style="font-family:'Libre Baskerville',serif;font-size:36px;color:#1a1a1a;margin-bottom:8px;">Apelier</div>
+          <div style="font-family:'Libre Baskerville',serif;font-size:24px;color:#1a1a1a;margin-bottom:8px;">Your gallery is ready</div>
+          <div style="font-family:'Libre Baskerville',serif;font-size:16px;color:#666;font-style:italic;">The photography business platform</div>
+        </div>
+      </div>
+      <div class="type-row">
+        <div class="type-label">UI / Labels<br>Manrope</div>
+        <div class="type-sample">
+          <div style="font-family:'Manrope',sans-serif;font-weight:600;font-size:14px;letter-spacing:1px;color:#1a1a1a;margin-bottom:8px;">NAVIGATION · BUTTONS · LABELS</div>
+          <div style="font-family:'Manrope',sans-serif;font-weight:300;font-size:11px;letter-spacing:6px;text-transform:uppercase;color:#b5a999;margin-bottom:8px;">Shoot · Edit · Deliver</div>
+          <div style="font-family:'Manrope',sans-serif;font-weight:400;font-size:13px;color:#666;">Body text for descriptions, tooltips, and interface copy. Clean and readable at all sizes.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 05 VOICE & TONE -->
+  <div class="section">
+    <div class="section-num">05</div>
+    <div class="section-title">Voice &amp; Tone</div>
+    <div class="section-body">
+      <p><strong>Premium but not pretentious.</strong> We respect photographers' craft and time. We don't oversell or use hype language.</p>
+      <p><strong>Confident but concise.</strong> We state what the product does clearly. No fluff, no jargon walls.</p>
+      <p><strong>Warm but professional.</strong> Like talking to a colleague who's really good at their job — helpful, direct, and never condescending.</p>
+      <p style="margin-top:20px;"><strong>We say:</strong> "Your gallery is ready" · "247 photos, delivered" · "From session to client in minutes"</p>
+      <p><strong>We don't say:</strong> "Revolutionary AI-powered solution" · "Disrupt your workflow" · "Unlock your potential"</p>
+    </div>
+  </div>
+
+  <!-- 06 IMAGERY -->
+  <div class="section">
+    <div class="section-num">06</div>
+    <div class="section-title">Imagery &amp; Photography</div>
+    <div class="section-body">
+      <p>Marketing imagery should feel <strong>natural, warm, and aspirational</strong>. Think golden hour, natural light, candid moments. Avoid overly saturated colours, heavy filters, or stock photo aesthetics.</p>
+      <p>When showing the product in context, use clean device mockups on cream or dark backgrounds. Never overlay the UI on busy photographs.</p>
+      <p><strong>Photo watermark:</strong> The aperture mark + "Apelier" wordmark in white at 18% opacity, bottom-centre of images.</p>
+    </div>
+  </div>
+
+  <!-- 07 APPLICATIONS -->
+  <div class="section">
+    <div class="section-num">07</div>
+    <div class="section-title">Brand Assets</div>
+    <div class="section-body">
+      <p>The following files are included in the brand package:</p>
+    </div>
+    <div class="file-list">
+      <div class="file-item">
+        <div class="file-icon">SVG</div>
+        <div><div class="file-name">apelier-logo-light.svg</div><div class="file-desc">Primary lockup for light backgrounds</div></div>
+      </div>
+      <div class="file-item">
+        <div class="file-icon">SVG</div>
+        <div><div class="file-name">apelier-logo-dark.svg</div><div class="file-desc">Primary lockup for dark backgrounds</div></div>
+      </div>
+      <div class="file-item">
+        <div class="file-icon">SVG</div>
+        <div><div class="file-name">apelier-mark.svg</div><div class="file-desc">Standalone aperture mark</div></div>
+      </div>
+      <div class="file-item">
+        <div class="file-icon">HTML</div>
+        <div><div class="file-name">apelier-business-card.html</div><div class="file-desc">Print-ready business card (light + dark)</div></div>
+      </div>
+      <div class="file-item">
+        <div class="file-icon">HTML</div>
+        <div><div class="file-name">apelier-letterhead.html</div><div class="file-desc">A4 letterhead template</div></div>
+      </div>
+      <div class="file-item">
+        <div class="file-icon">HTML</div>
+        <div><div class="file-name">apelier-email-signature.html</div><div class="file-desc">Email signature block</div></div>
+      </div>
+      <div class="file-item">
+        <div class="file-icon">HTML</div>
+        <div><div class="file-name">apelier-social-banner.html</div><div class="file-desc">Social media cover images</div></div>
+      </div>
+      <div class="file-item">
+        <div class="file-icon">HTML</div>
+        <div><div class="file-name">apelier-favicon.svg</div><div class="file-desc">Browser tab icon</div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Apelier — Letterhead</title>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Manrope:wght@200;300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; background: #fff; color: #1a1a1a; }
+  .page {
+    width: 210mm; min-height: 297mm;
+    padding: 30mm 30mm 25mm;
+    position: relative;
+  }
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-bottom: 20px; margin-bottom: 30px;
+    border-bottom: 1px solid #f0ece5;
+  }
+  .header-left { display: flex; align-items: center; gap: 10px; }
+  .header-name { font-family: 'Libre Baskerville', serif; font-size: 18px; color: #1a1a1a; }
+  .header-right { font-size: 9px; color: #b5a999; text-align: right; line-height: 1.8; }
+  .body-area { font-size: 11px; line-height: 1.9; color: #444; min-height: 200mm; }
+  .body-area .date { color: #999; margin-bottom: 20px; }
+  .body-area .greeting { margin-bottom: 14px; }
+  .body-area p { margin-bottom: 12px; }
+  .footer {
+    position: absolute; bottom: 25mm; left: 30mm; right: 30mm;
+    display: flex; justify-content: space-between; align-items: center;
+    padding-top: 14px; border-top: 1px solid #f0ece5;
+  }
+  .footer-left { font-family: 'Manrope', sans-serif; font-weight: 300; font-size: 7px; letter-spacing: 4px; text-transform: uppercase; color: #ccc; }
+  .footer-right { font-size: 8px; color: #ccc; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div class="header-left">
+      <svg width="28" height="28" viewBox="0 0 44 44" fill="none">
+        <rect x="5" y="9" width="34" height="26" rx="2" stroke="#d4a574" stroke-width="0.5" opacity="0.25"/>
+        <rect x="29" y="4.5" width="6" height="3.5" rx="0.8" stroke="#d4a574" stroke-width="0.5" opacity="0.25"/>
+        <path d="M22 3.5 L25.5 15.5 L22 13 Z" fill="#c47d4a" opacity="0.95"/>
+        <path d="M38 11 L29 19 L28.5 14.5 Z" fill="#d4a574" opacity="0.7"/>
+        <path d="M38 33 L28 25.5 L29.5 21 Z" fill="#c47d4a" opacity="0.55"/>
+        <path d="M22 40.5 L18.5 28.5 L22 31 Z" fill="#d4a574" opacity="0.95"/>
+        <path d="M6 33 L15 25.5 L15.5 30 Z" fill="#c47d4a" opacity="0.7"/>
+        <path d="M6 11 L16 19 L14.5 23.5 Z" fill="#d4a574" opacity="0.55"/>
+        <circle cx="22" cy="22" r="4" fill="#c47d4a"/>
+      </svg>
+      <span class="header-name">Apelier</span>
+    </div>
+    <div class="header-right">
+      hello@apelier.com<br>
+      apelier.com.au
+    </div>
+  </div>
+  <div class="body-area">
+    <div class="date">15 February 2026</div>
+    <div class="greeting">Dear Client,</div>
+    <p>Thank you for choosing Apelier. This letter template can be used for invoices, proposals, contracts, and general correspondence.</p>
+    <p>Replace this placeholder text with your content. The letterhead includes the Apelier logo, contact details, and a clean footer with the tagline.</p>
+    <p>Kind regards,</p>
+    <p style="margin-top:30px;font-family:'Libre Baskerville',serif;font-style:italic;">Mitchell Pearce</p>
+    <p style="font-size:10px;color:#999;">Founder, Apelier</p>
+  </div>
+  <div class="footer">
+    <div class="footer-left">Shoot · Edit · Deliver</div>
+    <div class="footer-right">apelier.com.au</div>
+  </div>
+</div>
+</body>
+</html>

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input, Select, Textarea } from '@/components/ui/form-fields';
 import { cn, formatCurrency } from '@/lib/utils';
-import { getCurrentPhotographer, getStyleProfiles, createStyleProfile } from '@/lib/queries';
+import { getCurrentPhotographer, getStyleProfiles, createStyleProfile, getPackages, createPackage as createPackageDB, updatePackage as updatePackageDB, deletePackage as deletePackageDB } from '@/lib/queries';
 import { createClient as createSupabaseClient } from '@/lib/supabase/client';
 import {
   User, Package, Palette, Bell, CreditCard, FileSignature,
@@ -201,16 +201,9 @@ export default function SettingsPage() {
     }
   }
 
-  function savePackages(updated: PackageItem[]) {
-    setPackages(updated);
-    if (photographer) {
-      localStorage.setItem(`packages_${photographer.id}`, JSON.stringify(updated));
-    }
-  }
-
   function addPackage() {
     const newPkg: PackageItem = {
-      id: crypto.randomUUID(),
+      id: '', // Will be assigned by Supabase
       name: '',
       description: '',
       price: 0,
@@ -226,17 +219,50 @@ export default function SettingsPage() {
 
   async function saveEditingPackage() {
     if (!editingPackage) return;
-    const exists = packages.find((p) => p.id === editingPackage.id);
+    setSaving(true);
+
+    const exists = editingPackage.id && packages.find((p) => p.id === editingPackage.id);
 
     // Check if duration changed on an existing package
     const oldPkg = exists ? packages.find((p) => p.id === editingPackage.id) : null;
     const durationChanged = oldPkg && oldPkg.duration_hours !== editingPackage.duration_hours;
 
-    const updated = exists
-      ? packages.map((p) => p.id === editingPackage.id ? editingPackage : p)
-      : [...packages, editingPackage];
-    savePackages(updated);
+    if (exists) {
+      // Update existing package in Supabase
+      const updated = await updatePackageDB(editingPackage.id, {
+        name: editingPackage.name,
+        description: editingPackage.description,
+        price: editingPackage.price,
+        duration_hours: editingPackage.duration_hours,
+        included_images: editingPackage.included_images,
+        deliverables: editingPackage.deliverables,
+        is_active: editingPackage.is_active,
+        require_deposit: editingPackage.require_deposit,
+        deposit_percent: editingPackage.deposit_percent,
+      } as any);
+      if (updated) {
+        setPackages((prev) => prev.map((p) => p.id === updated.id ? { ...editingPackage, id: updated.id } : p));
+      }
+    } else {
+      // Create new package in Supabase
+      const created = await createPackageDB({
+        name: editingPackage.name,
+        description: editingPackage.description,
+        price: editingPackage.price,
+        duration_hours: editingPackage.duration_hours,
+        included_images: editingPackage.included_images,
+        deliverables: editingPackage.deliverables,
+        is_active: editingPackage.is_active,
+        require_deposit: editingPackage.require_deposit,
+        deposit_percent: editingPackage.deposit_percent,
+      });
+      if (created) {
+        setPackages((prev) => [...prev, { ...editingPackage, id: created.id }]);
+      }
+    }
+
     setEditingPackage(null);
+    setSaving(false);
 
     // If duration changed, update end_time on matching jobs
     if (durationChanged && photographer) {
@@ -266,17 +292,30 @@ export default function SettingsPage() {
     }
   }
 
-  function deletePackage(id: string) {
-    savePackages(packages.filter((p) => p.id !== id));
+  async function handleDeletePackage(id: string) {
+    const success = await deletePackageDB(id);
+    if (success) {
+      setPackages((prev) => prev.filter((p) => p.id !== id));
+    }
   }
 
-  // Load packages from localStorage on mount
+  // Load packages from Supabase on mount
   useEffect(() => {
     if (photographer) {
-      const savedPkgs = localStorage.getItem(`packages_${photographer.id}`);
-      if (savedPkgs) {
-        try { setPackages(JSON.parse(savedPkgs)); } catch {}
-      }
+      getPackages().then((pkgs) => {
+        setPackages(pkgs.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          description: p.description || '',
+          price: Number(p.price),
+          duration_hours: Number(p.duration_hours),
+          included_images: p.included_images,
+          deliverables: p.deliverables || '',
+          is_active: p.is_active,
+          require_deposit: p.require_deposit,
+          deposit_percent: p.deposit_percent,
+        })));
+      });
     }
   }, [photographer]);
 
@@ -414,7 +453,7 @@ export default function SettingsPage() {
                             <Button size="sm" variant="ghost" onClick={() => setEditingPackage({ ...pkg })}>
                               <Pencil className="w-3 h-3" />
                             </Button>
-                            <Button size="sm" variant="ghost" onClick={() => deletePackage(pkg.id)} className="text-red-400 hover:text-red-300">
+                            <Button size="sm" variant="ghost" onClick={() => handleDeletePackage(pkg.id)} className="text-red-400 hover:text-red-300">
                               <Trash2 className="w-3 h-3" />
                             </Button>
                           </div>

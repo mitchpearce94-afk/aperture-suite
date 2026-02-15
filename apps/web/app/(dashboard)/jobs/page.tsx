@@ -10,7 +10,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input, Select, Textarea } from '@/components/ui/form-fields';
 import { Combobox } from '@/components/ui/combobox';
 import { formatDate, formatCurrency, cn } from '@/lib/utils';
-import { getJobs, getClients, createJob, updateJob, deleteJob, getCurrentPhotographer } from '@/lib/queries';
+import { getJobs, getClients, createJob, updateJob, deleteJob, getCurrentPhotographer, getPackages, createInvoice } from '@/lib/queries';
 import { Briefcase, Plus, Search, MapPin, Calendar as CalendarIcon, Pencil, Trash2, User, DollarSign, MessageSquare, X } from 'lucide-react';
 import type { Job, JobStatus, Client } from '@/lib/types';
 
@@ -133,11 +133,20 @@ export default function JobsPage() {
     ]);
     if (photographer) {
       setPhotographerId(photographer.id);
-      // Load packages from settings
-      try {
-        const savedPkgs = localStorage.getItem(`packages_${photographer.id}`);
-        if (savedPkgs) setPackages(JSON.parse(savedPkgs).filter((p: PackageItem) => p.is_active));
-      } catch {}
+      // Load packages from Supabase
+      const pkgs = await getPackages(true);
+      setPackages(pkgs.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description || '',
+        price: Number(p.price),
+        duration_hours: Number(p.duration_hours),
+        included_images: p.included_images,
+        deliverables: p.deliverables || '',
+        is_active: p.is_active,
+        require_deposit: p.require_deposit,
+        deposit_percent: p.deposit_percent,
+      })));
     }
     // Sort by date, soonest first, no-date at bottom
     setJobs(jobsData.sort((a, b) => {
@@ -173,6 +182,98 @@ export default function JobsPage() {
 
     if (newJob) {
       setJobs((prev) => [newJob, ...prev]);
+
+      // Auto-create invoice(s) on job creation
+      if (newJob.package_amount && newJob.package_amount > 0) {
+        const pkg = packages.find((p) => p.name === (addFormPackageName || newJob.package_name));
+        const requiresDeposit = pkg?.require_deposit ?? false;
+        const depositPercent = pkg?.deposit_percent ?? 25;
+        const packageAmount = Number(newJob.package_amount);
+        const gst = 10;
+        const jobLabel = newJob.title || newJob.job_type || 'Photography';
+        const pkgLabel = newJob.package_name || 'Package';
+        const jobNum = String(newJob.job_number || 0).padStart(4, '0');
+
+        // Helper: 14 days from today
+        const fourteenDaysFromNow = () => {
+          const d = new Date();
+          d.setDate(d.getDate() + 14);
+          return d.toISOString().split('T')[0];
+        };
+        // Helper: 14 days before shoot
+        const fourteenBeforeShoot = (dateStr: string) => {
+          const d = new Date(dateStr);
+          d.setDate(d.getDate() - 14);
+          return d.toISOString().split('T')[0];
+        };
+
+        if (requiresDeposit) {
+          const depositAmount = Math.round(packageAmount * (depositPercent / 100) * 100) / 100;
+          const finalAmount = Math.round((packageAmount - depositAmount) * 100) / 100;
+          const depositDue = fourteenDaysFromNow();
+          const finalDue = newJob.date ? fourteenBeforeShoot(newJob.date) : undefined;
+
+          const depositTax = Math.round(depositAmount * (gst / 100) * 100) / 100;
+          await createInvoice({
+            client_id: newJob.client_id || undefined,
+            job_id: newJob.id,
+            invoice_number: `INV-${jobNum}-DEP`,
+            invoice_type: 'deposit',
+            amount: depositAmount,
+            tax: depositTax,
+            total: Math.round((depositAmount + depositTax) * 100) / 100,
+            currency: 'AUD',
+            status: 'sent',
+            due_date: depositDue,
+            line_items: [{
+              description: `${jobLabel} — ${pkgLabel} (${depositPercent}% deposit)`,
+              quantity: 1, unit_price: depositAmount, total: depositAmount,
+            }],
+            notes: `Deposit of ${depositPercent}% to secure your booking. Due within 14 days.`,
+          });
+
+          const finalTax = Math.round(finalAmount * (gst / 100) * 100) / 100;
+          await createInvoice({
+            client_id: newJob.client_id || undefined,
+            job_id: newJob.id,
+            invoice_number: `INV-${jobNum}-FIN`,
+            invoice_type: 'final',
+            amount: finalAmount,
+            tax: finalTax,
+            total: Math.round((finalAmount + finalTax) * 100) / 100,
+            currency: 'AUD',
+            status: 'draft',
+            due_date: finalDue,
+            line_items: [{
+              description: `${jobLabel} — ${pkgLabel} (remaining balance)`,
+              quantity: 1, unit_price: finalAmount, total: finalAmount,
+            }],
+            notes: finalDue ? `Final payment due ${new Date(finalDue).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })} (14 days before shoot).` : 'Final payment — remaining balance.',
+          });
+        } else {
+          // Single invoice — full amount, due 14 days before shoot
+          const fullDue = newJob.date ? fourteenBeforeShoot(newJob.date) : fourteenDaysFromNow();
+          const fullTax = Math.round(packageAmount * (gst / 100) * 100) / 100;
+          await createInvoice({
+            client_id: newJob.client_id || undefined,
+            job_id: newJob.id,
+            invoice_number: `INV-${jobNum}`,
+            invoice_type: 'final',
+            amount: packageAmount,
+            tax: fullTax,
+            total: Math.round((packageAmount + fullTax) * 100) / 100,
+            currency: 'AUD',
+            status: 'sent',
+            due_date: fullDue,
+            line_items: [{
+              description: `${jobLabel} — ${pkgLabel}`,
+              quantity: 1, unit_price: packageAmount, total: packageAmount,
+            }],
+            notes: `Payment due ${new Date(fullDue).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}.`,
+          });
+        }
+      }
+
       setShowAddModal(false);
       setSelectedClientId('');
       setAddFormPackageName('');
@@ -203,7 +304,6 @@ export default function JobsPage() {
       location: form.get('location') as string || undefined,
       package_name: form.get('package_name') as string || undefined,
       package_amount: amount ? parseFloat(amount) : undefined,
-      status: form.get('status') as JobStatus,
       notes: form.get('notes') as string || undefined,
     });
 
@@ -479,25 +579,10 @@ export default function JobsPage() {
               </Button>
             </div>
 
-            {/* Status buttons */}
+            {/* Status (view-only) */}
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-600 mb-2">Status</p>
-              <div className="flex items-center gap-2 flex-wrap">
-                {statusOptions.map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => handleStatusChange(selectedJob.id, opt.value as JobStatus)}
-                    className={cn(
-                      'px-3 py-1.5 text-xs font-medium rounded-lg border transition-all',
-                      selectedJob.status === opt.value
-                        ? 'bg-indigo-500/15 border-indigo-500/30 text-indigo-300'
-                        : 'bg-white/[0.02] border-white/[0.06] text-slate-500 hover:text-slate-300 hover:border-white/[0.1]'
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
+              <StatusBadge status={selectedJob.status} />
             </div>
 
             {/* Info */}
@@ -588,7 +673,6 @@ export default function JobsPage() {
               emptyMessage="No clients found"
             />
             <Input name="title" label="Job Title" defaultValue={selectedJob.title || ''} />
-            <Select name="status" label="Status" options={statusOptions} defaultValue={selectedJob.status} />
             <Select name="job_type" label="Job Type" options={jobTypeOptions} defaultValue={selectedJob.job_type || ''} />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input name="date" label="Shoot Date" type="date" defaultValue={selectedJob.date || ''} />

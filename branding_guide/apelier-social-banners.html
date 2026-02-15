@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apelier — Social Banners</title>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Manrope:wght@200;300;400;500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #e8e4de; display: flex; flex-direction: column; align-items: center; gap: 40px; padding: 60px 20px; font-family: 'DM Sans', sans-serif; }
+  .label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #999; margin-bottom: 6px; }
+  .banner { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; max-width: 800px; position: relative; overflow: hidden; }
+
+  /* Twitter/X: 1500x500 = 3:1 */
+  .twitter { aspect-ratio: 3/1; background: #faf9f7; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
+  
+  /* LinkedIn: 1584x396 = 4:1 */
+  .linkedin { aspect-ratio: 4/1; background: #0e0e10; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+  
+  /* Facebook: 820x312 = ~2.63:1 */
+  .facebook { aspect-ratio: 2.63/1; background: linear-gradient(135deg, #faf9f7, #f0ece5); border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
+
+  .banner .lockup { display: flex; align-items: center; gap: 16px; }
+  .banner .wordmark { font-family: 'Libre Baskerville', serif; font-weight: 400; font-size: clamp(28px, 4vw, 48px); letter-spacing: 1px; }
+  .banner .tagline { font-family: 'Manrope', sans-serif; font-weight: 300; font-size: clamp(8px, 1.2vw, 11px); letter-spacing: 6px; text-transform: uppercase; margin-top: 12px; }
+</style>
+</head>
+<body>
+
+<div class="label">Twitter / X — 1500×500</div>
+<div class="banner twitter">
+  <div class="lockup">
+    <svg width="54" height="54" viewBox="0 0 44 44" fill="none">
+      <rect x="5" y="9" width="34" height="26" rx="2" stroke="#d4a574" stroke-width="0.5" opacity="0.25"/>
+      <rect x="29" y="4.5" width="6" height="3.5" rx="0.8" stroke="#d4a574" stroke-width="0.5" opacity="0.25"/>
+      <path d="M22 3.5 L25.5 15.5 L22 13 Z" fill="#c47d4a" opacity="0.95"/>
+      <path d="M38 11 L29 19 L28.5 14.5 Z" fill="#d4a574" opacity="0.7"/>
+      <path d="M38 33 L28 25.5 L29.5 21 Z" fill="#c47d4a" opacity="0.55"/>
+      <path d="M22 40.5 L18.5 28.5 L22 31 Z" fill="#d4a574" opacity="0.95"/>
+      <path d="M6 33 L15 25.5 L15.5 30 Z" fill="#c47d4a" opacity="0.7"/>
+      <path d="M6 11 L16 19 L14.5 23.5 Z" fill="#d4a574" opacity="0.55"/>
+      <circle cx="22" cy="22" r="4" fill="#c47d4a"/>
+    </svg>
+    <span class="wordmark" style="color:#1a1a1a;">Apelier</span>
+  </div>
+  <div class="tagline" style="color:#b5a999;">Shoot · Edit · Deliver</div>
+</div>
+
+<div class="label">LinkedIn — 1584×396</div>
+<div class="banner linkedin">
+  <div class="lockup">
+    <svg width="54" height="54" viewBox="0 0 44 44" fill="none">
+      <rect x="5" y="9" width="34" height="26" rx="2" stroke="#d4a574" stroke-width="0.5" opacity="0.15"/>
+      <rect x="29" y="4.5" width="6" height="3.5" rx="0.8" stroke="#d4a574" stroke-width="0.5" opacity="0.15"/>
+      <path d="M22 3.5 L25.5 15.5 L22 13 Z" fill="#c47d4a" opacity="0.95"/>
+      <path d="M38 11 L29 19 L28.5 14.5 Z" fill="#d4a574" opacity="0.7"/>
+      <path d="M38 33 L28 25.5 L29.5 21 Z" fill="#c47d4a" opacity="0.55"/>
+      <path d="M22 40.5 L18.5 28.5 L22 31 Z" fill="#d4a574" opacity="0.95"/>
+      <path d="M6 33 L15 25.5 L15.5 30 Z" fill="#c47d4a" opacity="0.7"/>
+      <path d="M6 11 L16 19 L14.5 23.5 Z" fill="#d4a574" opacity="0.55"/>
+      <circle cx="22" cy="22" r="4" fill="#c47d4a"/>
+    </svg>
+    <span class="wordmark" style="color:#fff;">Apelier</span>
+  </div>
+  <div class="tagline" style="color:#4a453f;">Shoot · Edit · Deliver</div>
+</div>
+
+<div class="label">Facebook — 820×312</div>
+<div class="banner facebook">
+  <div class="lockup">
+    <svg width="54" height="54" viewBox="0 0 44 44" fill="none">
+      <rect x="5" y="9" width="34" height="26" rx="2" stroke="#d4a574" stroke-width="0.5" opacity="0.25"/>
+      <rect x="29" y="4.5" width="6" height="3.5" rx="0.8" stroke="#d4a574" stroke-width="0.5" opacity="0.25"/>
+      <path d="M22 3.5 L25.5 15.5 L22 13 Z" fill="#c47d4a" opacity="0.95"/>
+      <path d="M38 11 L29 19 L28.5 14.5 Z" fill="#d4a574" opacity="0.7"/>
+      <path d="M38 33 L28 25.5 L29.5 21 Z" fill="#c47d4a" opacity="0.55"/>
+      <path d="M22 40.5 L18.5 28.5 L22 31 Z" fill="#d4a574" opacity="0.95"/>
+      <path d="M6 33 L15 25.5 L15.5 30 Z" fill="#c47d4a" opacity="0.7"/>
+      <path d="M6 11 L16 19 L14.5 23.5 Z" fill="#d4a574" opacity="0.55"/>
+      <circle cx="22" cy="22" r="4" fill="#c47d4a"/>
+    </svg>
+    <span class="wordmark" style="color:#1a1a1a;">Apelier</span>
+  </div>
+  <div class="tagline" style="color:#b5a999;">Shoot · Edit · Deliver</div>
+</div>
+
+</body>
+</html>

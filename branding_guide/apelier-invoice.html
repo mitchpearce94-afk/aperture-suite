@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Apelier — Invoice</title>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Manrope:wght@200;300;400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; background: #fff; color: #1a1a1a; font-size: 11px; }
+  .page { width: 210mm; min-height: 297mm; padding: 30mm; position: relative; }
+
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; }
+  .header-left { display: flex; align-items: center; gap: 10px; }
+  .header-name { font-family: 'Libre Baskerville', serif; font-size: 22px; color: #1a1a1a; }
+  .invoice-title { font-family: 'Manrope', sans-serif; font-weight: 600; font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: #c47d4a; }
+
+  .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 40px; }
+  .meta-block label { font-family: 'Manrope', sans-serif; font-weight: 500; font-size: 8px; letter-spacing: 2px; text-transform: uppercase; color: #b5a999; display: block; margin-bottom: 4px; }
+  .meta-block p { font-size: 11px; line-height: 1.7; color: #444; }
+
+  table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+  thead th { font-family: 'Manrope', sans-serif; font-weight: 500; font-size: 8px; letter-spacing: 2px; text-transform: uppercase; color: #b5a999; text-align: left; padding: 10px 0; border-bottom: 1px solid #f0ece5; }
+  thead th:last-child { text-align: right; }
+  tbody td { padding: 12px 0; border-bottom: 1px solid #f8f6f2; font-size: 11px; color: #444; }
+  tbody td:last-child { text-align: right; font-family: 'Manrope', sans-serif; font-weight: 500; }
+  .desc { font-size: 10px; color: #999; margin-top: 2px; }
+
+  .totals { display: flex; justify-content: flex-end; }
+  .totals-table { width: 240px; }
+  .totals-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 11px; color: #666; }
+  .totals-row.total { border-top: 2px solid #1a1a1a; padding-top: 10px; margin-top: 6px; font-family: 'Manrope', sans-serif; font-weight: 600; font-size: 14px; color: #1a1a1a; }
+
+  .footer { position: absolute; bottom: 25mm; left: 30mm; right: 30mm; display: flex; justify-content: space-between; align-items: center; padding-top: 14px; border-top: 1px solid #f0ece5; }
+  .footer-left { font-family: 'Manrope', sans-serif; font-weight: 300; font-size: 7px; letter-spacing: 4px; text-transform: uppercase; color: #ccc; }
+  .footer-right { font-size: 8px; color: #ccc; }
+
+  .payment-note { margin-top: 30px; padding: 16px; background: #faf9f7; border-radius: 6px; font-size: 10px; color: #999; line-height: 1.7; }
+  .payment-note strong { color: #666; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div class="header-left">
+      <svg width="30" height="30" viewBox="0 0 44 44" fill="none">
+        <rect x="5" y="9" width="34" height="26" rx="2" stroke="#d4a574" stroke-width="0.5" opacity="0.25"/>
+        <rect x="29" y="4.5" width="6" height="3.5" rx="0.8" stroke="#d4a574" stroke-width="0.5" opacity="0.25"/>
+        <path d="M22 3.5 L25.5 15.5 L22 13 Z" fill="#c47d4a" opacity="0.95"/>
+        <path d="M38 11 L29 19 L28.5 14.5 Z" fill="#d4a574" opacity="0.7"/>
+        <path d="M38 33 L28 25.5 L29.5 21 Z" fill="#c47d4a" opacity="0.55"/>
+        <path d="M22 40.5 L18.5 28.5 L22 31 Z" fill="#d4a574" opacity="0.95"/>
+        <path d="M6 33 L15 25.5 L15.5 30 Z" fill="#c47d4a" opacity="0.7"/>
+        <path d="M6 11 L16 19 L14.5 23.5 Z" fill="#d4a574" opacity="0.55"/>
+        <circle cx="22" cy="22" r="4" fill="#c47d4a"/>
+      </svg>
+      <span class="header-name">Apelier</span>
+    </div>
+    <div class="invoice-title">Invoice</div>
+  </div>
+
+  <div class="meta">
+    <div>
+      <div class="meta-block">
+        <label>Bill To</label>
+        <p>Client Name<br>123 Example Street<br>Brisbane QLD 4000</p>
+      </div>
+    </div>
+    <div style="text-align:right;">
+      <div class="meta-block" style="margin-bottom:12px;">
+        <label>Invoice Number</label>
+        <p>AP-2026-001</p>
+      </div>
+      <div class="meta-block" style="margin-bottom:12px;">
+        <label>Date</label>
+        <p>15 February 2026</p>
+      </div>
+      <div class="meta-block">
+        <label>Due Date</label>
+        <p>1 March 2026</p>
+      </div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:50%;">Description</th>
+        <th>Qty</th>
+        <th>Rate</th>
+        <th>Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Platform subscription — Pro Plan<div class="desc">Monthly access, unlimited galleries</div></td>
+        <td>1</td>
+        <td>$49.00</td>
+        <td>$49.00</td>
+      </tr>
+      <tr>
+        <td>Additional storage — 100GB<div class="desc">Photo storage add-on</div></td>
+        <td>1</td>
+        <td>$19.00</td>
+        <td>$19.00</td>
+      </tr>
+      <tr>
+        <td>AI editing credits — 500 photos<div class="desc">Auto-edit processing pack</div></td>
+        <td>1</td>
+        <td>$29.00</td>
+        <td>$29.00</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="totals">
+    <div class="totals-table">
+      <div class="totals-row"><span>Subtotal</span><span>$97.00</span></div>
+      <div class="totals-row"><span>GST (10%)</span><span>$9.70</span></div>
+      <div class="totals-row total"><span>Total AUD</span><span>$106.70</span></div>
+    </div>
+  </div>
+
+  <div class="payment-note">
+    <strong>Payment details:</strong> BSB 000-000 · Account 0000 0000 · Reference: AP-2026-001<br>
+    Please pay within 14 days. For questions, contact hello@apelier.com.
+  </div>
+
+  <div class="footer">
+    <div class="footer-left">Shoot · Edit · Deliver</div>
+    <div class="footer-right">apelier.com.au</div>
+  </div>
+</div>
+</body>
+</html>

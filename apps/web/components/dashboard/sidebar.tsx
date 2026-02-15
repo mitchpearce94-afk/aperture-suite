@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
-  LayoutDashboard, Users, Inbox, Briefcase, Calendar, FileText,
+  LayoutDashboard, Users, Inbox, Briefcase, Calendar, CalendarCheck, FileText,
   ScrollText, Zap, ImageIcon, Wand2, BarChart3, Settings,
   ChevronLeft, X,
 } from 'lucide-react';
@@ -22,6 +22,7 @@ const navGroups = [
       { name: 'Clients', href: '/clients', icon: Users },
       { name: 'Jobs', href: '/jobs', icon: Briefcase },
       { name: 'Calendar', href: '/calendar', icon: Calendar },
+      { name: 'Bookings', href: '/bookings', icon: CalendarCheck },
       { name: 'Invoices', href: '/invoices', icon: FileText },
       { name: 'Contracts', href: '/contracts', icon: ScrollText },
       { name: 'Workflows', href: '/workflows', icon: Zap },

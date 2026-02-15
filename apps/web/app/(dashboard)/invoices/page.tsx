@@ -11,7 +11,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input, Select, Textarea } from '@/components/ui/form-fields';
 import { Combobox } from '@/components/ui/combobox';
 import { formatDate, formatCurrency, initials, cn } from '@/lib/utils';
-import { getInvoices, getClients, getJobs, createInvoice, updateInvoice, deleteInvoice, getCurrentPhotographer } from '@/lib/queries';
+import { getInvoices, getClients, getJobs, createInvoice, updateInvoice, deleteInvoice, getCurrentPhotographer, getPackages } from '@/lib/queries';
 import { FileText, Plus, Pencil, Trash2, Send, Check, Calendar as CalendarIcon, User, Briefcase, Zap } from 'lucide-react';
 import type { Invoice, InvoiceStatus, InvoiceType, Client, Job } from '@/lib/types';
 
@@ -53,6 +53,12 @@ const invoiceTypeLabels: Record<string, string> = {
 function getTwoWeeksBefore(dateStr: string): string {
   const d = new Date(dateStr);
   d.setDate(d.getDate() - 14);
+  return d.toISOString().split('T')[0];
+}
+
+function getFourteenDaysFromNow(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 14);
   return d.toISOString().split('T')[0];
 }
 
@@ -103,10 +109,18 @@ export default function InvoicesPage() {
     ]);
     if (photographer) {
       setPhotographerId(photographer.id);
-      try {
-        const savedPkgs = localStorage.getItem(`packages_${photographer.id}`);
-        if (savedPkgs) setPackages(JSON.parse(savedPkgs));
-      } catch {}
+      const pkgs = await getPackages(true);
+      setPackages(pkgs.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        price: Number(p.price),
+        duration_hours: Number(p.duration_hours),
+        included_images: p.included_images,
+        deliverables: p.deliverables || '',
+        is_active: p.is_active,
+        require_deposit: p.require_deposit,
+        deposit_percent: p.deposit_percent,
+      })));
     }
     setInvoices(invoicesData);
     setClients(clientsData);
@@ -149,7 +163,7 @@ export default function InvoicesPage() {
       // Split into deposit + final
       const depositAmount = Math.round(packageAmount * (depositPercent / 100) * 100) / 100;
       const finalAmount = Math.round((packageAmount - depositAmount) * 100) / 100;
-      const depositDue = getTodayStr();
+      const depositDue = getFourteenDaysFromNow();
       const finalDue = job.date ? getTwoWeeksBefore(job.date) : undefined;
 
       const depositTax = Math.round(depositAmount * (gst / 100) * 100) / 100;
@@ -168,7 +182,7 @@ export default function InvoicesPage() {
           description: `${jobLabel} — ${pkgLabel} (${depositPercent}% deposit)`,
           quantity: 1, unit_price: depositAmount, total: depositAmount,
         }],
-        notes: `Deposit of ${depositPercent}% to secure your booking. Due upon receipt.`,
+        notes: `Deposit of ${depositPercent}% to secure your booking. Due within 14 days.`,
       });
 
       const finalTax = Math.round(finalAmount * (gst / 100) * 100) / 100;

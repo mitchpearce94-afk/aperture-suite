@@ -1,5 +1,5 @@
 import { createClient as createSupabaseClient } from '@/lib/supabase/client';
-import type { Client, Lead, Job, Invoice, Gallery, Photographer, Photo, ProcessingJob, StyleProfile } from '@/lib/types';
+import type { Client, Lead, Job, Invoice, Gallery, Photographer, Photo, ProcessingJob, StyleProfile, Package, BookingEvent, BookingSlot } from '@/lib/types';
 
 const supabase = () => createSupabaseClient();
 
@@ -969,3 +969,264 @@ export async function getUploadableJobs(): Promise<Job[]> {
   }
   return data || [];
 }
+
+// ============================================
+// Packages
+// ============================================
+
+export async function getPackages(activeOnly = false): Promise<Package[]> {
+  const sb = supabase();
+  let query = sb
+    .from('packages')
+    .select('*')
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
+
+  if (activeOnly) {
+    query = query.eq('is_active', true);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error('Error fetching packages:', error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function createPackage(pkg: {
+  name: string;
+  description?: string;
+  price: number;
+  duration_hours: number;
+  included_images: number;
+  deliverables?: string;
+  is_active?: boolean;
+  require_deposit?: boolean;
+  deposit_percent?: number;
+  sort_order?: number;
+}): Promise<Package | null> {
+  const photographer = await getCurrentPhotographer();
+  if (!photographer) {
+    console.error('No photographer profile found — cannot create package');
+    return null;
+  }
+
+  const sb = supabase();
+  const { data, error } = await sb
+    .from('packages')
+    .insert({
+      ...pkg,
+      photographer_id: photographer.id,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating package:', error);
+    return null;
+  }
+  return data;
+}
+
+export async function updatePackage(id: string, updates: Partial<Package>): Promise<Package | null> {
+  const sb = supabase();
+  const { data, error } = await sb
+    .from('packages')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating package:', error);
+    return null;
+  }
+  return data;
+}
+
+export async function deletePackage(id: string): Promise<boolean> {
+  const sb = supabase();
+  const { error } = await sb.from('packages').delete().eq('id', id);
+  if (error) {
+    console.error('Error deleting package:', error);
+    return false;
+  }
+  return true;
+}
+
+// ============================================
+// Booking Events
+// ============================================
+
+export async function getBookingEvents(): Promise<BookingEvent[]> {
+  const sb = supabase();
+  const { data, error } = await sb
+    .from('booking_events')
+    .select('*, package:packages(id, name, price, duration_hours, included_images, require_deposit, deposit_percent)')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching booking events:', error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function getBookingEvent(id: string): Promise<BookingEvent | null> {
+  const sb = supabase();
+  const { data, error } = await sb
+    .from('booking_events')
+    .select('*, package:packages(id, name, price, duration_hours, included_images, require_deposit, deposit_percent)')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    console.error('Error fetching booking event:', error);
+    return null;
+  }
+  return data;
+}
+
+export async function createBookingEvent(event: {
+  title: string;
+  description?: string;
+  location?: string;
+  package_id?: string;
+  custom_price?: number;
+  slot_duration_minutes?: number;
+  buffer_minutes?: number;
+  max_bookings_per_slot?: number;
+  require_phone?: boolean;
+  require_address?: boolean;
+  custom_questions?: any[];
+  accent_color?: string;
+  auto_create_job?: boolean;
+  auto_create_invoice?: boolean;
+}): Promise<BookingEvent | null> {
+  const photographer = await getCurrentPhotographer();
+  if (!photographer) {
+    console.error('No photographer profile found — cannot create booking event');
+    return null;
+  }
+
+  const sb = supabase();
+  const { data, error } = await sb
+    .from('booking_events')
+    .insert({
+      ...event,
+      photographer_id: photographer.id,
+      status: 'draft',
+      is_published: false,
+    })
+    .select('*, package:packages(id, name, price, duration_hours, included_images, require_deposit, deposit_percent)')
+    .single();
+
+  if (error) {
+    console.error('Error creating booking event:', error);
+    return null;
+  }
+  return data;
+}
+
+export async function updateBookingEvent(id: string, updates: Partial<BookingEvent>): Promise<BookingEvent | null> {
+  const sb = supabase();
+  const { data, error } = await sb
+    .from('booking_events')
+    .update(updates)
+    .eq('id', id)
+    .select('*, package:packages(id, name, price, duration_hours, included_images, require_deposit, deposit_percent)')
+    .single();
+
+  if (error) {
+    console.error('Error updating booking event:', error);
+    return null;
+  }
+  return data;
+}
+
+export async function deleteBookingEvent(id: string): Promise<boolean> {
+  const sb = supabase();
+  const { error } = await sb.from('booking_events').delete().eq('id', id);
+  if (error) {
+    console.error('Error deleting booking event:', error);
+    return false;
+  }
+  return true;
+}
+
+// ============================================
+// Booking Slots
+// ============================================
+
+export async function getBookingSlots(eventId: string): Promise<BookingSlot[]> {
+  const sb = supabase();
+  const { data, error } = await sb
+    .from('booking_slots')
+    .select('*')
+    .eq('event_id', eventId)
+    .order('date', { ascending: true })
+    .order('start_time', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching booking slots:', error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function createBookingSlots(slots: {
+  event_id: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+}[]): Promise<BookingSlot[]> {
+  const photographer = await getCurrentPhotographer();
+  if (!photographer) {
+    console.error('No photographer profile found — cannot create booking slots');
+    return [];
+  }
+
+  const sb = supabase();
+  const { data, error } = await sb
+    .from('booking_slots')
+    .insert(slots.map((s) => ({
+      ...s,
+      photographer_id: photographer.id,
+      status: 'available',
+    })))
+    .select();
+
+  if (error) {
+    console.error('Error creating booking slots:', error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function updateBookingSlot(id: string, updates: Partial<BookingSlot>): Promise<BookingSlot | null> {
+  const sb = supabase();
+  const { data, error } = await sb
+    .from('booking_slots')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating booking slot:', error);
+    return null;
+  }
+  return data;
+}
+
+export async function deleteBookingSlots(eventId: string): Promise<boolean> {
+  const sb = supabase();
+  const { error } = await sb.from('booking_slots').delete().eq('event_id', eventId);
+  if (error) {
+    console.error('Error deleting booking slots:', error);
+    return false;
+  }
+  return true;
+}
+

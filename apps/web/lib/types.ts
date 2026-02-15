@@ -43,6 +43,91 @@ export interface BrandSettings {
 }
 
 // ============================================
+// Packages
+// ============================================
+
+export interface Package {
+  id: string;
+  photographer_id: string;
+  name: string;
+  description: string;
+  price: number;
+  duration_hours: number;
+  included_images: number;
+  deliverables: string;
+  is_active: boolean;
+  require_deposit: boolean;
+  deposit_percent: number;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// ============================================
+// Booking Events & Slots
+// ============================================
+
+export type BookingEventStatus = 'draft' | 'published' | 'closed' | 'archived';
+export type BookingSlotStatus = 'available' | 'booked' | 'blocked' | 'canceled';
+
+export interface BookingEvent {
+  id: string;
+  photographer_id: string;
+  title: string;
+  description: string;
+  location: string;
+  cover_image_url?: string;
+  package_id?: string;
+  package?: Package;
+  custom_price?: number;
+  slot_duration_minutes: number;
+  buffer_minutes: number;
+  max_bookings_per_slot: number;
+  require_phone: boolean;
+  require_address: boolean;
+  custom_questions: CustomQuestion[];
+  slug?: string;
+  is_published: boolean;
+  accent_color?: string;
+  status: BookingEventStatus;
+  auto_create_job: boolean;
+  auto_create_invoice: boolean;
+  created_at: string;
+  updated_at: string;
+  // Computed / joined
+  slots?: BookingSlot[];
+  total_slots?: number;
+  booked_slots?: number;
+}
+
+export interface BookingSlot {
+  id: string;
+  event_id: string;
+  photographer_id: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  status: BookingSlotStatus;
+  client_id?: string;
+  job_id?: string;
+  booked_name?: string;
+  booked_email?: string;
+  booked_phone?: string;
+  booked_answers: Record<string, string>;
+  booked_at?: string;
+  created_at: string;
+  // Joined
+  event?: BookingEvent;
+}
+
+export interface CustomQuestion {
+  label: string;
+  type: 'text' | 'select' | 'textarea';
+  required: boolean;
+  options?: string[]; // for select type
+}
+
+// ============================================
 // CRM Types
 // ============================================
 

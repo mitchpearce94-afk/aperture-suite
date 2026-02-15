@@ -31,7 +31,7 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
 
   // Protected routes
-  const protectedPaths = ['/dashboard', '/clients', '/leads', '/jobs', '/galleries', '/invoices', '/calendar', '/contracts', '/workflows', '/editing', '/analytics', '/settings'];
+  const protectedPaths = ['/dashboard', '/clients', '/leads', '/jobs', '/galleries', '/invoices', '/calendar', '/bookings', '/contracts', '/workflows', '/editing', '/analytics', '/settings'];
   const isProtected = protectedPaths.some((path) => request.nextUrl.pathname.startsWith(path));
 
   if (isProtected && !user) {
@@ -54,5 +54,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api|sign|gallery).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api|sign|gallery|book).*)'],
 };

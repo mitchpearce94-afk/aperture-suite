@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apelier — Business Cards</title>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Manrope:wght@200;300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #e8e4de; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 40px; padding: 60px 20px; font-family: 'DM Sans', sans-serif; }
+  .label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #999; margin-bottom: 10px; }
+
+  .card {
+    width: 340px; height: 194px; /* 90x55mm ratio */
+    border-radius: 6px; padding: 28px 30px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+  }
+  .card-light { background: #faf9f7; }
+  .card-dark { background: #0e0e10; }
+
+  .card-logo { display: flex; align-items: center; gap: 10px; }
+  .card-name { font-family: 'Libre Baskerville', serif; font-weight: 400; }
+  .card-tag { font-family: 'Manrope', sans-serif; font-weight: 300; font-size: 7px; letter-spacing: 3px; text-transform: uppercase; margin-top: 4px; }
+  .card-info { font-family: 'DM Sans', sans-serif; font-size: 8px; line-height: 2; }
+  .card-person { font-family: 'Manrope', sans-serif; font-weight: 500; font-size: 9px; letter-spacing: 0.5px; margin-bottom: 2px; }
+  .card-role { font-family: 'DM Sans', sans-serif; font-size: 7.5px; margin-bottom: 6px; }
+
+  .pair { display: flex; gap: 20px; align-items: start; }
+</style>
+</head>
+<body>
+
+<div class="label">Front — Light</div>
+<div class="card card-light">
+  <div>
+    <div class="card-logo">
+      <svg width="24" height="24" viewBox="0 0 44 44" fill="none">
+        <rect x="5" y="9" width="34" height="26" rx="2" stroke="#d4a574" stroke-width="0.5" opacity="0.25"/>
+        <rect x="29" y="4.5" width="6" height="3.5" rx="0.8" stroke="#d4a574" stroke-width="0.5" opacity="0.25"/>
+        <path d="M22 3.5 L25.5 15.5 L22 13 Z" fill="#c47d4a" opacity="0.95"/>
+        <path d="M38 11 L29 19 L28.5 14.5 Z" fill="#d4a574" opacity="0.7"/>
+        <path d="M38 33 L28 25.5 L29.5 21 Z" fill="#c47d4a" opacity="0.55"/>
+        <path d="M22 40.5 L18.5 28.5 L22 31 Z" fill="#d4a574" opacity="0.95"/>
+        <path d="M6 33 L15 25.5 L15.5 30 Z" fill="#c47d4a" opacity="0.7"/>
+        <path d="M6 11 L16 19 L14.5 23.5 Z" fill="#d4a574" opacity="0.55"/>
+        <circle cx="22" cy="22" r="4" fill="#c47d4a"/>
+      </svg>
+      <span class="card-name" style="font-size:17px;color:#1a1a1a;">Apelier</span>
+    </div>
+    <div class="card-tag" style="color:#b5a999;">Shoot · Edit · Deliver</div>
+  </div>
+  <div>
+    <div class="card-person" style="color:#1a1a1a;">Mitchell Pearce</div>
+    <div class="card-role" style="color:#b5a999;">Founder</div>
+    <div class="card-info" style="color:#999;">hello@apelier.com &nbsp;·&nbsp; apelier.com.au</div>
+  </div>
+</div>
+
+<div class="label">Front — Dark</div>
+<div class="card card-dark">
+  <div>
+    <div class="card-logo">
+      <svg width="24" height="24" viewBox="0 0 44 44" fill="none">
+        <rect x="5" y="9" width="34" height="26" rx="2" stroke="#d4a574" stroke-width="0.5" opacity="0.15"/>
+        <rect x="29" y="4.5" width="6" height="3.5" rx="0.8" stroke="#d4a574" stroke-width="0.5" opacity="0.15"/>
+        <path d="M22 3.5 L25.5 15.5 L22 13 Z" fill="#c47d4a" opacity="0.95"/>
+        <path d="M38 11 L29 19 L28.5 14.5 Z" fill="#d4a574" opacity="0.7"/>
+        <path d="M38 33 L28 25.5 L29.5 21 Z" fill="#c47d4a" opacity="0.55"/>
+        <path d="M22 40.5 L18.5 28.5 L22 31 Z" fill="#d4a574" opacity="0.95"/>
+        <path d="M6 33 L15 25.5 L15.5 30 Z" fill="#c47d4a" opacity="0.7"/>
+        <path d="M6 11 L16 19 L14.5 23.5 Z" fill="#d4a574" opacity="0.55"/>
+        <circle cx="22" cy="22" r="4" fill="#c47d4a"/>
+      </svg>
+      <span class="card-name" style="font-size:17px;color:#fff;">Apelier</span>
+    </div>
+    <div class="card-tag" style="color:#4a453f;">Shoot · Edit · Deliver</div>
+  </div>
+  <div>
+    <div class="card-person" style="color:#fff;">Mitchell Pearce</div>
+    <div class="card-role" style="color:#4a453f;">Founder</div>
+    <div class="card-info" style="color:#555;">hello@apelier.com &nbsp;·&nbsp; apelier.com.au</div>
+  </div>
+</div>
+
+<div class="label">Back</div>
+<div class="card card-light" style="align-items:center;justify-content:center;">
+  <svg width="50" height="50" viewBox="0 0 44 44" fill="none">
+    <rect x="5" y="9" width="34" height="26" rx="2" stroke="#d4a574" stroke-width="0.5" opacity="0.25"/>
+    <rect x="29" y="4.5" width="6" height="3.5" rx="0.8" stroke="#d4a574" stroke-width="0.5" opacity="0.25"/>
+    <path d="M22 3.5 L25.5 15.5 L22 13 Z" fill="#c47d4a" opacity="0.95"/>
+    <path d="M38 11 L29 19 L28.5 14.5 Z" fill="#d4a574" opacity="0.7"/>
+    <path d="M38 33 L28 25.5 L29.5 21 Z" fill="#c47d4a" opacity="0.55"/>
+    <path d="M22 40.5 L18.5 28.5 L22 31 Z" fill="#d4a574" opacity="0.95"/>
+    <path d="M6 33 L15 25.5 L15.5 30 Z" fill="#c47d4a" opacity="0.7"/>
+    <path d="M6 11 L16 19 L14.5 23.5 Z" fill="#d4a574" opacity="0.55"/>
+    <circle cx="22" cy="22" r="4" fill="#c47d4a"/>
+  </svg>
+</div>
+
+</body>
+</html>
