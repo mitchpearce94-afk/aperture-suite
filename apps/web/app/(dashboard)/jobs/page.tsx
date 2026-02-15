@@ -55,7 +55,6 @@ const statusTabs: { label: string; value: string }[] = [
   { label: 'Open', value: 'open' },
   { label: 'Edited', value: 'edited' },
   { label: 'Delivered', value: 'delivered' },
-  { label: 'Completed', value: 'completed' },
   { label: 'All', value: 'all' },
 ];
 
@@ -422,11 +421,11 @@ export default function JobsPage() {
     setEditing(true);
   }
 
-  const closedStatuses = ['delivered', 'completed', 'canceled'];
+  const closedStatuses = ['edited', 'delivered', 'completed', 'canceled'];
   const filteredJobs = jobs
     .filter((j) => {
       if (filter === 'all') return true;
-      if (filter === 'open') return !closedStatuses.includes(j.status) && j.status !== 'edited';
+      if (filter === 'open') return !closedStatuses.includes(j.status);
       return j.status === filter;
     })
     .filter((j) => {
@@ -476,7 +475,7 @@ export default function JobsPage() {
           <div className="flex items-center gap-1 border-b border-white/[0.06] -mb-[1px]">
             {statusTabs.map((tab) => {
               const count = tab.value === 'all' ? jobs.length
-                : tab.value === 'open' ? jobs.filter((j) => !['delivered', 'completed', 'canceled', 'edited'].includes(j.status)).length
+                : tab.value === 'open' ? jobs.filter((j) => !['edited', 'delivered', 'completed', 'canceled'].includes(j.status)).length
                 : jobs.filter((j) => j.status === tab.value).length;
               return (
                 <button

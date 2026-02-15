@@ -39,7 +39,6 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'send_to_gallery') {
-      // All-in-one: update photos, gallery, job, and delete processing job
       const { processing_job_id, gallery_id, auto_deliver } = body;
       
       if (!processing_job_id || !gallery_id) {
@@ -53,7 +52,7 @@ export async function POST(request: NextRequest) {
         .from('photos')
         .update({ status: 'delivered' })
         .eq('gallery_id', gallery_id)
-        .in('status', ['approved', 'edited'])
+        .in('status', ['approved', 'edited', 'uploaded', 'processing'])
         .select('id');
       results.photos = { updated: updatedPhotos?.length || 0, error: photoErr?.message };
 
@@ -65,20 +64,49 @@ export async function POST(request: NextRequest) {
         .eq('id', gallery_id);
       results.gallery = { status: newGalleryStatus, error: galErr?.message };
 
-      // 3. Update job status via gallery's job_id
+      // 3. Find and update the job
+      // First try: gallery.job_id
       const { data: galData } = await supabaseAdmin
         .from('galleries')
         .select('job_id')
         .eq('id', gallery_id)
         .single();
       
-      if (galData?.job_id) {
+      let jobId = galData?.job_id;
+      console.log('[send_to_gallery] gallery job_id:', jobId);
+
+      // Fallback: find job that references this gallery
+      if (!jobId) {
+        const { data: jobData } = await supabaseAdmin
+          .from('jobs')
+          .select('id')
+          .eq('gallery_id', gallery_id)
+          .limit(1)
+          .single();
+        jobId = jobData?.id;
+        console.log('[send_to_gallery] fallback job lookup:', jobId);
+      }
+
+      // Fallback 2: find job linked to this gallery via galleries table
+      if (!jobId) {
+        const { data: jobsWithGallery } = await supabaseAdmin
+          .from('galleries')
+          .select('id, job_id')
+          .eq('id', gallery_id)
+          .single();
+        console.log('[send_to_gallery] gallery record:', jobsWithGallery);
+      }
+
+      if (jobId) {
         const newJobStatus = auto_deliver ? 'delivered' : 'edited';
-        const { error: jobErr } = await supabaseAdmin
+        const { data: jobResult, error: jobErr } = await supabaseAdmin
           .from('jobs')
           .update({ status: newJobStatus })
-          .eq('id', galData.job_id);
-        results.job = { id: galData.job_id, status: newJobStatus, error: jobErr?.message };
+          .eq('id', jobId)
+          .select('id, status');
+        results.job = { id: jobId, status: newJobStatus, updated: jobResult, error: jobErr?.message };
+      } else {
+        results.job = { error: 'No job_id found for this gallery' };
       }
 
       // 4. Delete the processing job
@@ -88,7 +116,7 @@ export async function POST(request: NextRequest) {
         .eq('id', processing_job_id);
       results.processing_job = { deleted: !pjErr, error: pjErr?.message };
 
-      console.log('[send_to_gallery] results:', JSON.stringify(results));
+      console.log('[send_to_gallery] ALL results:', JSON.stringify(results));
 
       return NextResponse.json({ success: true, results });
     }
