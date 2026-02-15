@@ -8,8 +8,9 @@ import { SlideOver } from '@/components/ui/slide-over';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { formatDate } from '@/lib/utils';
 import { getContracts, deleteContract, generateContract } from '@/lib/contract-queries';
-import { getJobs } from '@/lib/queries';
-import type { Contract, Job } from '@/lib/types';
+import { getJobs, getCurrentPhotographer } from '@/lib/queries';
+import { sendContractSigningEmail } from '@/lib/email';
+import type { Contract, Job, Photographer } from '@/lib/types';
 import {
   ScrollText, Plus, Eye, Copy, Trash2, CheckCircle2,
   Clock, Send, FileSignature, ExternalLink, Search,
@@ -21,6 +22,7 @@ export default function ContractsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [photographer, setPhotographer] = useState<Photographer | null>(null);
 
   // Detail panel
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
@@ -40,12 +42,14 @@ export default function ContractsPage() {
 
   async function loadData() {
     setLoading(true);
-    const [contractData, jobData] = await Promise.all([
+    const [contractData, jobData, photographerData] = await Promise.all([
       getContracts(),
       getJobs(),
+      getCurrentPhotographer(),
     ]);
     setContracts(contractData);
     setJobs(jobData);
+    if (photographerData) setPhotographer(photographerData);
     setLoading(false);
   }
 
@@ -56,6 +60,23 @@ export default function ContractsPage() {
       setContracts((prev) => [contract, ...prev]);
       setShowGenerateModal(false);
       setSelectedContract(contract);
+
+      // Send contract signing email to client
+      const clientEmail = (contract as any).client?.email;
+      const clientName = [(contract as any).client?.first_name, (contract as any).client?.last_name].filter(Boolean).join(' ');
+      const jobTitle = (contract as any).job?.title || (contract as any).job?.job_type || 'Photography Session';
+      if (clientEmail && photographer) {
+        const signingUrl = `${window.location.origin}/sign/${contract.signing_token}`;
+        sendContractSigningEmail({
+          to: clientEmail,
+          clientName,
+          jobTitle,
+          signingUrl,
+          photographerName: photographer.name || '',
+          businessName: photographer.business_name || photographer.name || '',
+          brandColor: photographer.brand_settings?.primary_color || '#6366f1',
+        }).catch((err) => console.error('Failed to send contract email:', err));
+      }
     }
     setGenerating(false);
   }

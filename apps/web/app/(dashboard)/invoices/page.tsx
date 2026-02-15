@@ -12,8 +12,9 @@ import { Input, Select, Textarea } from '@/components/ui/form-fields';
 import { Combobox } from '@/components/ui/combobox';
 import { formatDate, formatCurrency, initials, cn } from '@/lib/utils';
 import { getInvoices, getClients, getJobs, createInvoice, updateInvoice, deleteInvoice, getCurrentPhotographer, getPackages } from '@/lib/queries';
+import { sendInvoiceEmail } from '@/lib/email';
 import { FileText, Plus, Pencil, Trash2, Send, Check, Calendar as CalendarIcon, User, Briefcase, Zap } from 'lucide-react';
-import type { Invoice, InvoiceStatus, InvoiceType, Client, Job } from '@/lib/types';
+import type { Invoice, InvoiceStatus, InvoiceType, Client, Job, Photographer } from '@/lib/types';
 
 interface LineItem {
   description: string;
@@ -73,6 +74,7 @@ export default function InvoicesPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<InvoiceStatus | 'all'>('all');
   const [photographerId, setPhotographerId] = useState<string | null>(null);
+  const [photographer, setPhotographer] = useState<Photographer | null>(null);
   const [packages, setPackages] = useState<PackageItem[]>([]);
 
   // Create modal
@@ -109,6 +111,7 @@ export default function InvoicesPage() {
     ]);
     if (photographer) {
       setPhotographerId(photographer.id);
+      setPhotographer(photographer);
       const pkgs = await getPackages(true);
       setPackages(pkgs.map((p: any) => ({
         id: p.id,
@@ -328,6 +331,25 @@ export default function InvoicesPage() {
     if (updated) {
       setInvoices((prev) => prev.map((i) => i.id === invoiceId ? updated : i));
       if (selectedInvoice?.id === invoiceId) setSelectedInvoice(updated);
+
+      // Send invoice email when marking as "sent"
+      if (newStatus === 'sent' && photographer) {
+        const client = clients.find((c) => c.id === updated.client_id);
+        const job = jobs.find((j) => j.id === updated.job_id);
+        if (client?.email) {
+          sendInvoiceEmail({
+            to: client.email,
+            clientName: [client.first_name, client.last_name].filter(Boolean).join(' '),
+            invoiceNumber: updated.invoice_number || '',
+            amount: formatCurrency(updated.total || updated.amount || 0),
+            dueDate: updated.due_date ? new Date(updated.due_date).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' }) : 'On receipt',
+            jobTitle: job?.title || job?.job_type || 'Photography Session',
+            photographerName: photographer.name || '',
+            businessName: photographer.business_name || photographer.name || '',
+            brandColor: photographer.brand_settings?.primary_color || '#6366f1',
+          }).catch((err) => console.error('Failed to send invoice email:', err));
+        }
+      }
     }
   }
 

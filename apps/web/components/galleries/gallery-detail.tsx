@@ -79,6 +79,9 @@ export function GalleryDetail({ gallery: initialGallery, onBack, onUpdate }: Gal
   const [showDeliverConfirm, setShowDeliverConfirm] = useState(false);
   const [lightboxPhoto, setLightboxPhoto] = useState<Photo | null>(null);
   const [useMockPhotos, setUseMockPhotos] = useState(false);
+  const [galleryPassword, setGalleryPassword] = useState('');
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordSaved, setPasswordSaved] = useState(false);
 
   const clientName = gallery.client
     ? `${gallery.client.first_name} ${gallery.client.last_name || ''}`.trim()
@@ -261,6 +264,49 @@ export function GalleryDetail({ gallery: initialGallery, onBack, onUpdate }: Gal
             )}
           </div>
           <p className="text-[10px] text-slate-600 mt-2">Gallery settings are managed globally in Settings → Branding → Gallery Settings.</p>
+
+          {/* Per-gallery password setting */}
+          {gallery.access_type === 'password' && (
+            <div className="mt-3 pt-3 border-t border-white/[0.06]">
+              <label className="text-[11px] text-slate-400 block mb-1.5">Gallery Password</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={galleryPassword}
+                  onChange={(e) => { setGalleryPassword(e.target.value); setPasswordSaved(false); }}
+                  placeholder="Set a password for this gallery"
+                  className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                />
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={!galleryPassword.trim() || passwordSaving}
+                  onClick={async () => {
+                    setPasswordSaving(true);
+                    try {
+                      const res = await fetch('/api/gallery-password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'set', gallery_id: gallery.id, password: galleryPassword.trim() }),
+                      });
+                      const data = await res.json();
+                      if (data.success) {
+                        setPasswordSaved(true);
+                        setTimeout(() => setPasswordSaved(false), 3000);
+                      }
+                    } catch (err) {
+                      console.error('Failed to set password:', err);
+                    }
+                    setPasswordSaving(false);
+                  }}
+                >
+                  {passwordSaved ? <Check className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+                  <span className="hidden sm:inline">{passwordSaving ? 'Saving...' : passwordSaved ? 'Saved!' : 'Set'}</span>
+                </Button>
+              </div>
+              <p className="text-[10px] text-slate-600 mt-1">Share this password with your client so they can access their gallery.</p>
+            </div>
+          )}
         </div>
       )}
 

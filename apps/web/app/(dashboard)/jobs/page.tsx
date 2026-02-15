@@ -11,8 +11,9 @@ import { Input, Select, Textarea } from '@/components/ui/form-fields';
 import { Combobox } from '@/components/ui/combobox';
 import { formatDate, formatCurrency, cn } from '@/lib/utils';
 import { getJobs, getClients, createJob, updateJob, deleteJob, getCurrentPhotographer, getPackages, createInvoice } from '@/lib/queries';
+import { sendInvoiceEmail, sendBookingConfirmationEmail } from '@/lib/email';
 import { Briefcase, Plus, Search, MapPin, Calendar as CalendarIcon, Pencil, Trash2, User, DollarSign, MessageSquare, X } from 'lucide-react';
-import type { Job, JobStatus, Client } from '@/lib/types';
+import type { Job, JobStatus, Client, Photographer } from '@/lib/types';
 
 interface PackageItem {
   id: string;
@@ -68,6 +69,7 @@ export default function JobsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [photographerId, setPhotographerId] = useState<string | null>(null);
+  const [photographer, setPhotographer] = useState<Photographer | null>(null);
   const [selectedClientId, setSelectedClientId] = useState('');
   const [packages, setPackages] = useState<PackageItem[]>([]);
   const [addFormPackageAmount, setAddFormPackageAmount] = useState('');
@@ -133,6 +135,7 @@ export default function JobsPage() {
     ]);
     if (photographer) {
       setPhotographerId(photographer.id);
+      setPhotographer(photographer);
       // Load packages from Supabase
       const pkgs = await getPackages(true);
       setPackages(pkgs.map((p: any) => ({
@@ -271,6 +274,54 @@ export default function JobsPage() {
             }],
             notes: `Payment due ${new Date(fullDue).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}.`,
           });
+        }
+      }
+
+      // Send booking confirmation + invoice emails
+      if (photographer) {
+        const client = clients.find((c) => c.id === newJob.client_id);
+        if (client?.email) {
+          const clientName = [client.first_name, client.last_name].filter(Boolean).join(' ');
+          const brandColor = photographer.brand_settings?.primary_color || '#6366f1';
+          const bizName = photographer.business_name || photographer.name || '';
+
+          // Booking confirmation email
+          sendBookingConfirmationEmail({
+            to: client.email,
+            clientName,
+            jobTitle: newJob.title || newJob.job_type || 'Photography Session',
+            jobDate: newJob.date ? new Date(newJob.date).toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '',
+            jobTime: newJob.time || '',
+            location: newJob.location || '',
+            photographerName: photographer.name || '',
+            businessName: bizName,
+            brandColor,
+          }).catch((err) => console.error('Failed to send booking email:', err));
+
+          // Invoice email (for deposit invoice if created as 'sent')
+          if (newJob.package_amount && newJob.package_amount > 0) {
+            const jobNum = String(newJob.job_number || 0).padStart(4, '0');
+            const pkg = packages.find((p) => p.name === (addFormPackageName || newJob.package_name));
+            const requiresDeposit = pkg?.require_deposit ?? false;
+            const invoiceNum = requiresDeposit ? `INV-${jobNum}-DEP` : `INV-${jobNum}`;
+            const invoiceAmount = requiresDeposit
+              ? Math.round(Number(newJob.package_amount) * ((pkg?.deposit_percent ?? 25) / 100) * 100) / 100
+              : Number(newJob.package_amount);
+            const gst = 10;
+            const invoiceTotal = Math.round((invoiceAmount + invoiceAmount * (gst / 100)) * 100) / 100;
+
+            sendInvoiceEmail({
+              to: client.email,
+              clientName,
+              invoiceNumber: invoiceNum,
+              amount: formatCurrency(invoiceTotal),
+              dueDate: new Date(Date.now() + 14 * 86400000).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' }),
+              jobTitle: newJob.title || newJob.job_type || 'Photography Session',
+              photographerName: photographer.name || '',
+              businessName: bizName,
+              brandColor,
+            }).catch((err) => console.error('Failed to send invoice email:', err));
+          }
         }
       }
 

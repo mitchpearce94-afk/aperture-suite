@@ -22,9 +22,34 @@ type BrandData = {
 };
 
 /* ─── Password Gate ─── */
-function PasswordGate({ onUnlock, brandColor }: { onUnlock: () => void; brandColor: string }) {
+function PasswordGate({ galleryId, onUnlock, brandColor }: { galleryId: string; onUnlock: () => void; brandColor: string }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState(false);
+  const [checking, setChecking] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!password.trim()) { setError(true); return; }
+    setChecking(true);
+    setError(false);
+    try {
+      const res = await fetch('/api/gallery-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify', gallery_id: galleryId, password: password.trim() }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        onUnlock();
+      } else {
+        setError(true);
+      }
+    } catch {
+      setError(true);
+    }
+    setChecking(false);
+  }
+
   return (
     <div className="min-h-screen bg-[#fafafa] flex items-center justify-center p-6">
       <div className="w-full max-w-sm">
@@ -35,11 +60,13 @@ function PasswordGate({ onUnlock, brandColor }: { onUnlock: () => void; brandCol
           <h2 className="text-lg font-semibold text-gray-900">Protected Gallery</h2>
           <p className="text-sm text-gray-500 mt-1">Enter the password your photographer provided.</p>
         </div>
-        <form onSubmit={(e) => { e.preventDefault(); password.trim() ? onUnlock() : setError(true); }} className="space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-3">
           <input type="password" value={password} onChange={(e) => { setPassword(e.target.value); setError(false); }} placeholder="Enter password" autoFocus
             className={`w-full px-4 py-3 text-sm border rounded-xl bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 transition-all ${error ? 'border-red-300 focus:ring-red-200' : 'border-gray-200 focus:ring-gray-200'}`} />
-          {error && <p className="text-xs text-red-500">Please enter the gallery password.</p>}
-          <button type="submit" className="w-full py-3 text-sm font-medium text-white rounded-xl" style={{ backgroundColor: brandColor }}>View Gallery</button>
+          {error && <p className="text-xs text-red-500">Incorrect password. Please try again.</p>}
+          <button type="submit" disabled={checking} className="w-full py-3 text-sm font-medium text-white rounded-xl disabled:opacity-60" style={{ backgroundColor: brandColor }}>
+            {checking ? 'Checking...' : 'View Gallery'}
+          </button>
         </form>
       </div>
     </div>
@@ -225,7 +252,7 @@ export default function PublicGalleryPage() {
     </div>
   );
   if (!gallery) return null;
-  if (gallery.access_type === 'password' && !unlocked) return <PasswordGate onUnlock={() => setUnlocked(true)} brandColor={brandColor} />;
+  if (gallery.access_type === 'password' && !unlocked) return <PasswordGate galleryId={gallery.id} onUnlock={() => setUnlocked(true)} brandColor={brandColor} />;
 
   return (
     <div className="min-h-screen bg-[#fafafa]">
