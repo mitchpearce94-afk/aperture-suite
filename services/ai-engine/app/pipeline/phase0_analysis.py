@@ -355,13 +355,24 @@ def analyse_image(image_bytes: bytes) -> dict:
 
     h, w = img.shape[:2]
 
-    # Run all analyses
+    # Resize for analysis to prevent OOM on memory-constrained containers
+    # Analysis (face detection, scene, quality) doesn't need full resolution
+    MAX_ANALYSIS_DIM = 1600
+    if max(h, w) > MAX_ANALYSIS_DIM:
+        scale = MAX_ANALYSIS_DIM / max(h, w)
+        analysis_img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+    else:
+        analysis_img = img
+    # Free full-res immediately
+    del img
+
+    # Run all analyses on the resized image
     exif = extract_exif(image_bytes)
-    faces = detect_faces(img)
+    faces = detect_faces(analysis_img)
     face_count = len(faces)
-    scene = detect_scene_type(img, face_count)
-    quality = score_quality(img)
-    phash = compute_image_hash(img)
+    scene = detect_scene_type(analysis_img, face_count)
+    quality = score_quality(analysis_img)
+    phash = compute_image_hash(analysis_img)
 
     return {
         "exif_data": exif,
@@ -371,6 +382,6 @@ def analyse_image(image_bytes: bytes) -> dict:
         "face_data": faces,
         "face_count": face_count,
         "phash": phash,
-        "width": w,
+        "width": w,   # Original dimensions
         "height": h,
     }

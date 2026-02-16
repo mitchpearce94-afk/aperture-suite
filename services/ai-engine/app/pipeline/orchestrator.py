@@ -192,8 +192,8 @@ def run_pipeline(
                     "scene_type": result["scene_type"],
                     "face_data": result["face_data"],
                     "phash": result["phash"],
-                    "image_bytes": image_bytes,
                 })
+                # Don't store image_bytes — re-download in Phase 1 to save memory
 
             except Exception as e:
                 log.error(f"Phase 0 failed for photo {photo['id']}: {e}")
@@ -235,9 +235,12 @@ def run_pipeline(
 
         for i, result in enumerate(analysis_results):
             try:
-                img = decode_image(result["image_bytes"])
-                # Free raw bytes — no longer needed
-                result.pop("image_bytes", None)
+                # Re-download image for processing (not stored from Phase 0 to save memory)
+                raw = download_photo(result["original_key"])
+                if not raw:
+                    continue
+                img = decode_image(raw)
+                del raw  # Free raw bytes immediately
                 if img is None:
                     continue
 
@@ -252,7 +255,6 @@ def run_pipeline(
 
             except Exception as e:
                 log.error(f"Phase 1 failed for {result['id']}: {e}")
-                result.pop("image_bytes", None)
 
             set_job_phase(
                 processing_job_id, "style",
