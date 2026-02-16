@@ -436,9 +436,11 @@ def compute_adaptive_adjustments(image_context: dict) -> dict:
 def apply_style(img_array: np.ndarray, style_profile: dict, intensity: float = 0.75,
                 image_context: dict | None = None) -> np.ndarray:
     """
-    Apply a learned style profile to an image, adaptively adjusted per-image.
-    v2.0: Preset baseline (scene-adapted) + reference refinement.
-    v1.0: Reference-only (backward compatible).
+    Apply style to an image.
+    - With preset: apply preset params with per-image adaptive adjustments
+    - Without preset: apply basic adaptive adjustments only (exposure, contrast, etc.)
+    - Reference histogram matching is DISABLED — produces poor results on CPU.
+      Will be replaced by neural style transfer (GPU/Modal) in next phase.
     """
     if len(img_array.shape) == 2:
         img_array = cv2.cvtColor(img_array, cv2.COLOR_GRAY2BGR)
@@ -453,15 +455,60 @@ def apply_style(img_array: np.ndarray, style_profile: dict, intensity: float = 0
         preset = style_profile.get("preset")
         if preset:
             result = apply_preset_adaptive(result, preset, adjustments, intensity=min(intensity + 0.15, 1.0))
-            log.debug("Applied adaptive preset")
-        ref = style_profile.get("reference")
-        if ref:
-            ref_intensity = intensity * 0.35 if preset else intensity
-            result = _apply_reference_style(result, ref, ref_intensity, adjustments)
-            log.debug("Applied reference refinement")
+            log.info("Applied adaptive preset")
+        else:
+            # No preset — apply basic adaptive adjustments only
+            result = _apply_basic_adjustments(result, adjustments)
+            log.info("Applied basic adaptive adjustments (no preset, no reference)")
         return result
 
-    return _apply_reference_style(img_array, style_profile, intensity, adjustments)
+    # v1.0 fallback — basic adjustments only
+    return _apply_basic_adjustments(img_array, adjustments)
+
+
+def _apply_basic_adjustments(img_array: np.ndarray, adj: dict) -> np.ndarray:
+    """
+    Apply basic per-image adaptive adjustments without any style reference.
+    Handles exposure correction, contrast, and scene-specific tweaks.
+    """
+    result = img_array.copy().astype(np.float32)
+
+    # Exposure shift
+    exp_shift = adj.get("exposure_shift", 0.0)
+    if abs(exp_shift) > 0.01:
+        result *= (1.0 + exp_shift)
+
+    # Shadow lift
+    shadow_shift = adj.get("shadows_shift", 0.0)
+    if shadow_shift > 0.01:
+        lab = cv2.cvtColor(np.clip(result, 0, 255).astype(np.uint8), cv2.COLOR_BGR2LAB).astype(np.float32)
+        L = lab[:, :, 0]
+        shadow_mask = np.clip((85.0 - L) / 85.0, 0, 1)
+        L += shadow_mask * shadow_shift * 80.0
+        lab[:, :, 0] = np.clip(L, 0, 255)
+        result = cv2.cvtColor(lab.astype(np.uint8), cv2.COLOR_LAB2BGR).astype(np.float32)
+
+    # Highlight recovery
+    hi_shift = adj.get("highlights_shift", 0.0)
+    if hi_shift < -0.01:
+        lab = cv2.cvtColor(np.clip(result, 0, 255).astype(np.uint8), cv2.COLOR_BGR2LAB).astype(np.float32)
+        L = lab[:, :, 0]
+        hi_mask = np.clip((L - 170.0) / 85.0, 0, 1)
+        L += hi_mask * hi_shift * 80.0
+        lab[:, :, 0] = np.clip(L, 0, 255)
+        result = cv2.cvtColor(lab.astype(np.uint8), cv2.COLOR_LAB2BGR).astype(np.float32)
+
+    # Contrast
+    contrast_mod = adj.get("contrast_mod", 1.0)
+    if abs(contrast_mod - 1.0) > 0.01:
+        lab = cv2.cvtColor(np.clip(result, 0, 255).astype(np.uint8), cv2.COLOR_BGR2LAB).astype(np.float32)
+        L = lab[:, :, 0]
+        mean_l = np.mean(L)
+        L = mean_l + (L - mean_l) * contrast_mod
+        lab[:, :, 0] = np.clip(L, 0, 255)
+        result = cv2.cvtColor(lab.astype(np.uint8), cv2.COLOR_LAB2BGR).astype(np.float32)
+
+    return np.clip(result, 0, 255).astype(np.uint8)
 
 
 def apply_preset_adaptive(img_array: np.ndarray, preset: dict, adj: dict,
