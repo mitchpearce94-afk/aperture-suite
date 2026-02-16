@@ -1136,7 +1136,7 @@ function EditingStyleSection({ photographerId }: { photographerId?: string }) {
   };
 
   const handleUpload = async () => {
-    if (files.length === 0) return;
+    if (files.length === 0 && !presetFile) return;
     const totalImages = files.length + existingCount;
     if (totalImages < STYLE_MIN_IMAGES) return;
 
@@ -1607,14 +1607,16 @@ function EditingStyleSection({ photographerId }: { photographerId?: string }) {
         )}
 
         {/* Upload button */}
-        {files.length > 0 && !uploading && (
+        {(files.length > 0 || (presetFile && existingCount >= STYLE_MIN_IMAGES)) && !uploading && (
           <div className="flex items-center justify-between">
-            <button onClick={() => setFiles([])} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
-              Clear {files.length} files
+            <button onClick={() => { setFiles([]); setPresetFile(null); setPresetStatus('none'); }} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
+              Clear {files.length > 0 ? `${files.length} files` : 'preset'}
             </button>
             <Button size="sm" onClick={handleUpload} disabled={totalImages < STYLE_MIN_IMAGES}>
               <Upload className="w-3 h-3" />
-              {existingCount > 0 ? `Upload ${files.length} & Retrain` : `Upload ${files.length} & Train`}
+              {presetFile && files.length === 0
+                ? 'Upload Preset & Retrain'
+                : existingCount > 0 ? `Upload ${files.length} & Retrain` : `Upload ${files.length} & Train`}
             </Button>
           </div>
         )}
