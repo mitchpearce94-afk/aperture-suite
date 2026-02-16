@@ -10,9 +10,11 @@ Handles async training of style profiles:
 """
 import logging
 import traceback
+import numpy as np
+import cv2
 from datetime import datetime, timezone
 
-from app.pipeline.phase1_style import train_style_profile, load_image_from_bytes
+from app.pipeline.phase1_style import compute_channel_stats, load_image_from_bytes
 from app.pipeline.preset_parser import parse_preset_file
 from app.storage.supabase_storage import download_photo
 from app.storage.db import get_style_profile, update_style_profile
@@ -73,21 +75,34 @@ def train_profile(profile_id: str):
             log.warning("No keys matched photographer prefix — using all keys (legacy mode)")
             valid_keys = ref_keys
 
-        # Download and decode reference images
-        reference_images = []
+        # Download, decode, and compute stats one image at a time (memory safe)
+        # Don't hold all images in memory — compute stats per image and accumulate
+        all_stats = []
+        valid_count = 0
+        TRAIN_MAX_DIM = 800  # Resize for stats computation — saves memory
+
         for key in valid_keys:
             try:
                 data = download_photo(key)
                 if data:
                     img = load_image_from_bytes(data)
+                    del data  # Free raw bytes
                     if img is not None:
-                        reference_images.append(img)
+                        # Resize for stats computation
+                        h, w = img.shape[:2]
+                        if max(h, w) > TRAIN_MAX_DIM:
+                            scale = TRAIN_MAX_DIM / max(h, w)
+                            img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+                        stats = compute_channel_stats(img)
+                        all_stats.append(stats)
+                        del img  # Free image immediately
+                        valid_count += 1
             except Exception as e:
                 log.warning(f"Failed to load reference image {key}: {e}")
 
-        if len(reference_images) < 10:
+        if valid_count < 10:
             update_style_profile(profile_id, status="error")
-            log.error(f"Only {len(reference_images)} valid reference images — need at least 10")
+            log.error(f"Only {valid_count} valid reference images — need at least 10")
             return
 
         # Check for uploaded preset file
@@ -107,11 +122,27 @@ def train_profile(profile_id: str):
             except Exception as e:
                 log.warning(f"Failed to parse preset file: {e}")
 
-        log.info(f"Training style from {len(reference_images)} images"
+        log.info(f"Training style from {valid_count} images"
                  f"{f' + {len(preset_params)} preset params' if preset_params else ''}")
 
-        # Train the profile (v2.0 — preset + reference)
-        style_data = train_style_profile(reference_images, preset_params=preset_params)
+        # Build profile from pre-computed stats (v2.0 — preset + reference)
+        profile_data = {"version": "2.0", "has_preset": preset_params is not None}
+
+        if preset_params:
+            profile_data["preset"] = preset_params
+
+        if all_stats:
+            ref = {}
+            for key in all_stats[0].keys():
+                vals = [s[key] for s in all_stats if key in s]
+                if isinstance(vals[0], list):
+                    ref[key] = np.mean(np.array(vals), axis=0).tolist()
+                else:
+                    ref[key] = float(np.mean(vals))
+            profile_data["reference"] = ref
+            profile_data["num_reference_images"] = valid_count
+
+        style_data = profile_data
 
         if "error" in style_data:
             update_style_profile(profile_id, status="error")
