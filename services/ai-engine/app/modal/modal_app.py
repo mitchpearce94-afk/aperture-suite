@@ -27,6 +27,7 @@ gpu_image = (
         "Pillow",
         "httpx",
         "scipy",
+        "rawpy",
     )
 )
 
@@ -46,6 +47,7 @@ codeformer_image = (
         "facexlib",
         "gfpgan",
         "basicsr",
+        "rawpy",
     )
 )
 
@@ -63,6 +65,7 @@ lama_image = (
         "httpx",
         "scipy",
         "scikit-image",
+        "rawpy",
     )
 )
 
@@ -83,6 +86,26 @@ def download_from_supabase(url: str, service_key: str, bucket: str, path: str) -
     )
     resp.raise_for_status()
     return resp.content
+
+
+def open_image_bytes(img_bytes: bytes) -> "Image.Image":
+    """Open image bytes as PIL RGB Image, with rawpy fallback for DNG/RAW files."""
+    from PIL import Image
+    try:
+        return Image.open(io.BytesIO(img_bytes)).convert("RGB")
+    except Exception:
+        pass
+    # Fallback: rawpy for camera RAW formats
+    import rawpy, tempfile, os
+    with tempfile.NamedTemporaryFile(suffix='.dng', delete=False) as f:
+        f.write(img_bytes)
+        tmp_path = f.name
+    try:
+        with rawpy.imread(tmp_path) as raw:
+            rgb = raw.postprocess(use_camera_wb=True, no_auto_bright=False, output_bps=8)
+            return Image.fromarray(rgb)
+    finally:
+        os.unlink(tmp_path)
 
 
 def upload_to_supabase(url: str, service_key: str, bucket: str, path: str, data: bytes, content_type: str = "image/jpeg"):
@@ -452,7 +475,7 @@ def apply_style(body: dict):
 
     # Download image
     img_bytes = download_from_supabase(supabase_url, supabase_key, bucket, image_key)
-    img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+    img = open_image_bytes(img_bytes)
     orig_size = img.size  # (W, H)
 
     # Generate LUT from downsampled input
@@ -551,7 +574,7 @@ def apply_style_batch(body: dict):
     for i, item in enumerate(images_list):
         try:
             img_bytes = download_from_supabase(supabase_url, supabase_key, bucket, item["image_key"])
-            img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+            img = open_image_bytes(img_bytes)
             orig_size = img.size
 
             # Generate LUT
@@ -633,7 +656,7 @@ def face_retouch(body: dict):
 
     # Download image
     img_bytes = download_from_supabase(supabase_url, supabase_key, bucket, image_key)
-    img = np.array(Image.open(io.BytesIO(img_bytes)).convert("RGB"))
+    img = np.array(open_image_bytes(img_bytes))
     img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
     # Download CodeFormer weights if not cached
@@ -772,7 +795,7 @@ def scene_cleanup(body: dict):
 
     # Download image
     img_bytes = download_from_supabase(supabase_url, supabase_key, bucket, image_key)
-    img = np.array(Image.open(io.BytesIO(img_bytes)).convert("RGB"))
+    img = np.array(open_image_bytes(img_bytes))
 
     # Generate inpainting mask using detection heuristics
     mask = np.zeros(img.shape[:2], dtype=np.uint8)

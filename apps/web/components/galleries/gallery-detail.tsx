@@ -101,6 +101,7 @@ export function GalleryDetail({ gallery: initialGallery, onBack, onUpdate }: Gal
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [galleryPassword, setGalleryPassword] = useState('');
+  const [globalAccessType, setGlobalAccessType] = useState<string>(gallery.access_type || 'public');
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordSaved, setPasswordSaved] = useState(false);
 
@@ -124,7 +125,15 @@ export function GalleryDetail({ gallery: initialGallery, onBack, onUpdate }: Gal
       }
       setLoading(false);
     }
+    async function loadGlobalSettings() {
+      const photographer = await getCurrentPhotographer();
+      if (photographer) {
+        const p = photographer as any;
+        setGlobalAccessType(p.gallery_default_access_type || 'public');
+      }
+    }
     loadPhotos();
+    loadGlobalSettings();
   }, [gallery.id]);
 
   const copyLink = () => {
@@ -147,7 +156,7 @@ export function GalleryDetail({ gallery: initialGallery, onBack, onUpdate }: Gal
     });
 
     // Also save password if access type is password and password is set
-    if (gallery.access_type === 'password' && galleryPassword.trim()) {
+    if (globalAccessType === 'password' && galleryPassword.trim()) {
       try {
         await fetch('/api/gallery-password', {
           method: 'POST',
@@ -415,8 +424,8 @@ export function GalleryDetail({ gallery: initialGallery, onBack, onUpdate }: Gal
             </div>
           </div>
 
-          {/* Password (only when global gallery access type is password) */}
-          {gallery.access_type === 'password' && (
+          {/* Password (only when global gallery settings require password) */}
+          {globalAccessType === 'password' && (
             <div>
               <label className="text-[11px] text-slate-400 block mb-1.5">Gallery Password</label>
               <input
