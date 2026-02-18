@@ -1,7 +1,7 @@
 # Apelier — Master Document
 
-**Version:** 3.8  
-**Last Updated:** 18 February 2026 (Gallery bug fixes — duplicate gallery prevention, photo counts, cover images, per-gallery settings, tab reorder, empty review cleanup, booking email wired, indigo→gold rebrand)  
+**Version:** 3.9  
+**Last Updated:** 18 February 2026 (Session 2 — Dashboard open jobs, delivery popup, auto-contract, invoice tabs, empty review cleanup, send-back-to-review, job picker grouping, gold rebrand continued)  
 **Project Location:** `C:\Users\mitch\OneDrive\Documents\aperture-suite`  
 **GitHub:** `github.com/mitchpearce94-afk/aperture-suite`  
 **Live URL:** Deployed on Vercel (auto-deploys from `main` branch)  
@@ -835,28 +835,22 @@ All files delivered with PowerShell `Move-Item` commands from Downloads to proje
 
 ### Known Issues (to fix)
 - **Cloud files fail upload:** Files synced via OneDrive/cloud that aren't fully downloaded locally cause `ERR_FAILED` on upload. Only locally-available files work
-- **Click-to-browse button not working:** The file picker "click to browse" area in the upload component is unresponsive (likely z-index issue). Drag-and-drop works fine
 - **Large file upload (RAW >4.5MB):** Current upload goes through Next.js API route which has body size limits. Needs direct-to-Supabase upload with signed URLs for large RAW files
-- **Gallery password verification:** Hash stored but client-side verification not fully wired
 - **Preset name not shown:** XMP preset uploads don't display the preset name (e.g. "Wedding") in the UI — parser extracts it from `<crs:Name>` but frontend doesn't display it
+- **GPU processing speed:** CPU-based style application takes ~97s per photo on Railway. Modal GPU migration is critical priority
 
 ### Next Session Priorities
-1. **GPU neural style transfer via Modal (THE priority):** Build Modal endpoints for 3D LUT prediction. This is the only approach that will produce professional-quality results:
-   - Modal account setup + API tokens in env vars
-   - 3D LUT predictor: lightweight CNN predicts image-adaptive LUT weights from downsampled input (~600K params, <2ms apply time per 4K image)
-   - Training endpoint: learns from before/after pairs (photographer's Lightroom exports)
-   - Inference endpoint: applies learned style via generated LUT
-   - Wire into orchestrator Phase 1, replacing current CPU preset application
-   - Frontend: before/after pair upload UI for style training
-2. **FIX: Style profile isolation per photographer:** Each photographer's trained style profile MUST be scoped by `photographer_id`. The processing pipeline needs to: look up the photographer's selected style profile → only use that profile's learned settings → never cross-contaminate between accounts
-3. **Signed upload URLs for large files (RAW + training images):** New `/api/upload-url` route generates Supabase Storage signed upload URLs via service role. Frontend uploads directly to Supabase (no 4.5MB Vercel limit)
-4. **Job stays uploadable until sent to gallery:** Job needs to remain selectable for uploads until photographer clicks "Send to Gallery"
-5. **"Upload More" button on Review Workspace:** Upload additional photos from review page to meet package amount
-6. **Enforce package image limits on upload:** Counter like "12 / 50 images", block if exceeds package limit
-7. **Wire remaining email templates:** Booking confirmation, invoice sent, contract signing
+1. **GPU neural style transfer via Modal (THE priority):** Build Modal endpoints for 3D LUT prediction. Current CPU processing takes ~97s per photo. Modal A10G GPU target is <2s per photo.
+2. **Multi-style profiles with labels + per-style presets:** Photographers can train multiple named styles (e.g. "Newborn", "Wedding Moody", "Black & White"). Each style profile gets a user-defined label and can optionally have a Lightroom preset (.xmp/.lrtemplate) attached. New `preset_key` column on `style_profiles` table. During Phase 1, pipeline loads the preset for whichever style is selected. Style selector in upload flow lets them pick which style to apply per job.
+3. **Re-edit individual photos with different style in Review:** In "Ready for Review", photographer selects photos → chooses a different learned style from dropdown of saved styles → re-processes just those photos. Replaces edited output for those specific photos. Use case: apply B&W style to select ceremony shots while keeping rest in colour.
+4. **Subscription tier enforcement with monthly edit tracking:** Build tier system (Starter/Pro/Studio) with monthly edit limits. Track `edits_used_this_month` on photographer record or separate `usage` table. Reset monthly. Block processing if limit exceeded with upgrade prompt. Enforce at `/api/process` route level.
+5. **Signed upload URLs for large files (RAW + training images):** New `/api/upload-url` route generates Supabase Storage signed upload URLs via service role. Frontend uploads directly to Supabase (no 4.5MB Vercel limit)
+6. **Client gallery watermarks (IP protection):** Zero watermark logic exists. Need server-side or client-side overlay
+7. **Client-facing quote page:** View packages, add extras, accept/decline
 8. **Stripe payment integration:** Invoicing, deposits, print orders
-9. **Client-facing quote page:** View packages, add extras, accept/decline
-10. **Fix click-to-browse button** in upload component (z-index issue)
+9. **Workflows backend (cron/event triggers):** UI exists, no backend
+10. **Supabase RLS policies:** Multi-tenant security enforcement
+11. **Client gallery UI/UX overhaul:** Functional now, needs full design pass
 
 ### Session: 18 Feb 2026 — Gallery Fixes, Branding, Email Wiring
 - **FIX #3 — Duplicate galleries per job:** `createGalleryForJob()` now checks `getGalleryForJob()` first and returns existing gallery if one exists. Also auto-generates a URL-safe slug on creation
@@ -874,8 +868,24 @@ All files delivered with PowerShell `Move-Item` commands from Downloads to proje
 - **Gallery type updated:** Added `cover_thumb_key` and `cover_thumb_url` optional fields
 
 ### TODO — UI/UX Fixes (17 Feb 2026)
-1. **Galleries page restructure:** Re-order tabs to: Ready → Delivered → All. Remove the Processing tab entirely (not needed). Currently delivered galleries clutter the Ready view — they need to be separated so the photographer only sees galleries awaiting action on the first page
-2. **Multiple uploads must merge into one review:** Currently uploading photos multiple times to the same job creates separate review entries. All uploads for a job must consolidate into a single "Ready for Review" entry. When photographer clicks "Send to Gallery", all images go as one batch
-3. **Empty review cleanup:** If all images in a "Ready for Review" entry have been rejected and none remain, the review entry should be automatically deleted. Combined with #2 above — all uploads feed into one review per job, and send to gallery sends everything as one
-4. **Gallery tiles showing 0 photos / no preview:** Gallery cards on the Galleries page display "0 photos" even when photos exist, and show no thumbnail preview. Likely the photo count query or the cover image lookup is broken — check the gallery list query joins
-5. **Per-gallery settings & client-facing name:** Clicking into a gallery needs editable settings: gallery name, description, date, cover image, expiry, access type. On the client-facing gallery page, the title should show the **gallery name** (not the job title). Gallery name should default to the job title on creation but be independently editable
+1. ~~**Galleries page restructure:** Re-order tabs to: Ready → Delivered → All~~ ✅ Done 18 Feb
+2. **Multiple uploads must merge into one review:** Currently uploading photos multiple times to the same job creates separate review entries. All uploads for a job must consolidate into a single "Ready for Review" entry
+3. ~~**Empty review cleanup:** If all images in a "Ready for Review" entry have been rejected and none remain, the review entry should be automatically deleted~~ ✅ Done 18 Feb
+4. ~~**Gallery tiles showing 0 photos / no preview:** Gallery cards display "0 photos" and no thumbnail~~ ✅ Done 18 Feb
+5. ~~**Per-gallery settings & client-facing name:** Clicking into a gallery needs editable settings~~ ✅ Done 18 Feb
+
+### Session: 18 Feb 2026 (Evening) — Dashboard, Contracts, Invoices, Review Flow
+- **Dashboard open jobs:** Stat tile now only counts jobs not in delivered/completed/canceled status
+- **Delivery success popup:** Random cute message overlay + auto-redirects to galleries after 2.5s
+- **Contract auto-sends on job creation:** `generateContract()` called after job creation, signing email sent to client automatically
+- **Contract deposit logic fixed:** Reads `require_deposit` and `deposit_percent` from actual package record in DB. Only shows deposit section if package has deposit enabled
+- **Invoice tabs reordered:** Outstanding → Paid → All. Default view is Outstanding. Paid invoices only show in Paid and All tabs
+- **Empty review auto-cleanup enhanced:** `getProcessingJobs()` checks completed jobs for active photos, auto-deletes processing jobs with 0 non-culled photos
+- **Processing queue stat:** Changed from "Total Images" to "Edited This Month" (filters by current month)
+- **Upload job picker:** Today's jobs shown first under "Today" header, other jobs grouped under "Other Jobs", sorted by nearest date
+- **Send Back to Review button:** Orange outlined button in gallery detail. Sets gallery to processing (disappears from galleries page), creates completed processing job, redirects to Auto Editor → Review tab
+- **Editing page tab param:** Reads `?tab=review` from URL to auto-open review tab (SSG-safe via window.location)
+- **Gold rebrand continued:** Dashboard, editing page, invoices page, client gallery brand fallback all updated from indigo to gold/amber
+- **All email templates now wired:** Booking confirmation, contract signing, invoice, gallery delivery all auto-send on their respective triggers
+
+**Files modified this session (9):** dashboard/page.tsx, editing/page.tsx, invoices/page.tsx, jobs/page.tsx, gallery-detail.tsx, photo-upload.tsx, queries.ts, contract-queries.ts, processing-jobs/route.ts
