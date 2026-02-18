@@ -202,7 +202,6 @@ export function PhotoUpload({ onUploadComplete }: PhotoUploadProps) {
           );
 
           if (result) {
-            // Create photo record in database
             await createPhotoRecord({
               gallery_id: gallery.id,
               original_key: result.storageKey,
@@ -211,7 +210,6 @@ export function PhotoUpload({ onUploadComplete }: PhotoUploadProps) {
               mime_type: uploadFile.file.type || 'application/octet-stream',
               sort_order: i,
             });
-
             setFiles((prev) =>
               prev.map((f) => (f.id === uploadFile.id ? { ...f, status: 'complete' as const, progress: 100 } : f))
             );
@@ -230,8 +228,6 @@ export function PhotoUpload({ onUploadComplete }: PhotoUploadProps) {
             ? `File too large (${formatFileSize(actualFile.size)}).`
             : message.includes('403') || message.includes('Forbidden')
             ? 'Permission denied — your session may have expired. Try refreshing.'
-            : message.includes('500')
-            ? 'Server error — please try again in a moment.'
             : `Upload error: ${message}`;
           uploadErrorsRef.current.push({ name: uploadFile.file.name, reason });
           setFiles((prev) =>
@@ -276,7 +272,6 @@ export function PhotoUpload({ onUploadComplete }: PhotoUploadProps) {
         }
       }
 
-      // Only notify parent if no errors — if there are errors, the modal needs to stay visible
       if (uploadErrorsRef.current.length === 0) {
         onUploadComplete();
       }

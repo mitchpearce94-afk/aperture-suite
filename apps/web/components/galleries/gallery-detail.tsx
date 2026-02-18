@@ -114,8 +114,10 @@ export function GalleryDetail({ gallery: initialGallery, onBack, onUpdate }: Gal
     async function loadPhotos() {
       try {
         const data = await getPhotos(gallery.id);
-        if (data.length > 0) {
-          const hydrated = await hydratePhotoUrls(data);
+        // Filter out rejected/declined photos — only show delivered, approved, edited, uploaded
+        const visible = data.filter(p => p.status !== 'rejected');
+        if (visible.length > 0) {
+          const hydrated = await hydratePhotoUrls(visible);
           setPhotos(hydrated);
         }
       } catch (err) {
@@ -218,7 +220,6 @@ export function GalleryDetail({ gallery: initialGallery, onBack, onUpdate }: Gal
       setShowDeliverSuccess(true);
       setDelivering(false);
       setShowDeliverConfirm(false);
-
       return;
     }
     setDelivering(false);
@@ -260,7 +261,7 @@ export function GalleryDetail({ gallery: initialGallery, onBack, onUpdate }: Gal
               <Check className="w-8 h-8 text-emerald-400" />
             </div>
             <h3 className="text-lg font-bold text-white mb-2">Gallery Delivered!</h3>
-            <p className="text-sm text-slate-400 mb-1">{deliverSuccessMessage}</p>
+            <p className="text-xs text-slate-600 mt-4">{deliverSuccessMessage}</p>
             <div className="mt-6">
               <Button size="sm" onClick={() => { setShowDeliverSuccess(false); onBack(); }}>
                 Got it
@@ -382,70 +383,8 @@ export function GalleryDetail({ gallery: initialGallery, onBack, onUpdate }: Gal
             />
           </div>
 
-          {/* Access type + Expiry row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="text-[11px] text-slate-400 block mb-1.5">Access Type</label>
-              <div className="flex gap-2">
-                {(['public', 'password', 'email', 'private'] as GalleryAccessType[]).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setEditAccessType(t)}
-                    className={`flex-1 px-2 py-1.5 text-[11px] rounded-lg border transition-all capitalize ${
-                      editAccessType === t
-                        ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
-                        : 'border-white/[0.06] bg-white/[0.02] text-slate-500 hover:text-slate-300'
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="text-[11px] text-slate-400 block mb-1.5">Expiry</label>
-              <select
-                value={editExpiryDays}
-                onChange={(e) => setEditExpiryDays(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-lg bg-white/[0.04] border border-white/[0.08] text-slate-300 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
-              >
-                <option value="7">7 days</option>
-                <option value="14">14 days</option>
-                <option value="30">30 days</option>
-                <option value="60">60 days</option>
-                <option value="90">90 days</option>
-                <option value="none">No expiry</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Download permissions */}
-          <div>
-            <label className="text-[11px] text-slate-400 block mb-1.5">Download Permissions</label>
-            <div className="flex items-center gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={editDownloadFullRes}
-                  onChange={(e) => setEditDownloadFullRes(e.target.checked)}
-                  className="rounded border-white/20 bg-white/[0.04] text-amber-500 focus:ring-amber-500/50"
-                />
-                <span className="text-xs text-slate-300">Full resolution</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={editDownloadWeb}
-                  onChange={(e) => setEditDownloadWeb(e.target.checked)}
-                  className="rounded border-white/20 bg-white/[0.04] text-amber-500 focus:ring-amber-500/50"
-                />
-                <span className="text-xs text-slate-300">Web resolution</span>
-              </label>
-            </div>
-          </div>
-
-          {/* Password (when access type is password) */}
-          {editAccessType === 'password' && (
+          {/* Password (required when gallery access type is password — set in Global Gallery Settings) */}
+          {gallery.access_type === 'password' && (
             <div>
               <label className="text-[11px] text-slate-400 block mb-1.5">Gallery Password</label>
               <div className="flex gap-2">

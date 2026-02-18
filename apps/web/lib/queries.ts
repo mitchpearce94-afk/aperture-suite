@@ -817,6 +817,21 @@ export async function uploadPhotoToStorage(
   const timestamp = Date.now();
   const storageKey = `${photographerId}/${galleryId}/originals/${timestamp}_${safeName}`;
 
+  // Normalize MIME types — browsers report RAW formats inconsistently
+  // e.g. Chrome reports .dng as 'image/dng' but Supabase bucket expects 'image/x-adobe-dng'
+  const ext = file.name.split('.').pop()?.toLowerCase() || '';
+  const mimeOverrides: Record<string, string> = {
+    'dng': 'image/x-adobe-dng',
+    'cr2': 'image/x-canon-cr2',
+    'cr3': 'image/x-canon-cr3',
+    'nef': 'image/x-nikon-nef',
+    'arw': 'image/x-sony-arw',
+    'raf': 'image/x-fuji-raf',
+    'orf': 'image/x-olympus-orf',
+    'rw2': 'image/x-panasonic-rw2',
+  };
+  const contentType = mimeOverrides[ext] || file.type || 'application/octet-stream';
+
   // For files > 4MB, use signed upload URL (direct to Supabase, bypasses Vercel 4.5MB limit)
   // For smaller files, use the existing server-side route (simpler)
   const SIGNED_URL_THRESHOLD = 4 * 1024 * 1024; // 4MB
@@ -827,10 +842,7 @@ export async function uploadPhotoToStorage(
       const urlRes = await fetch('/api/upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          storageKey,
-          contentType: file.type || 'application/octet-stream',
-        }),
+        body: JSON.stringify({ storageKey, contentType }),
       });
 
       const urlResult = await urlRes.json();
@@ -839,13 +851,11 @@ export async function uploadPhotoToStorage(
         throw new Error(urlResult.error || 'Failed to get upload URL');
       }
 
-      // Step 2: Upload using Supabase client's uploadToSignedUrl (token-based, no RLS)
+      // Step 2: Upload using Supabase client's uploadToSignedUrl (token-based, bypasses RLS)
       const sb = supabase();
       const { data, error } = await sb.storage
         .from('photos')
-        .uploadToSignedUrl(storageKey, urlResult.token, file, {
-          contentType: file.type || 'application/octet-stream',
-        });
+        .uploadToSignedUrl(storageKey, urlResult.token, file, { contentType });
 
       if (error) {
         console.error('Signed URL upload failed:', error.message);
@@ -1019,7 +1029,7 @@ export async function createGalleryForJob(jobId: string, title: string): Promise
       client_id: job?.client_id || null,
       title,
       slug,
-      status: 'ready',
+      status: 'processing',
       access_type: defaultAccessType,
       view_count: 0,
       expires_at: expiresAt,
