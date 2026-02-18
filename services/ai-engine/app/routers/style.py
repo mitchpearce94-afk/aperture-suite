@@ -1,155 +1,117 @@
 """
-Updated style training router — supports both:
-1. Reference-only training (existing CPU histogram method)
-2. Before/after pair training (new GPU neural LUT method via Modal)
-
-Replaces: app/routers/style.py
+Style Profile API routes — create, train, and manage style profiles.
+v2.0: Supports preset file uploads + photographer isolation.
 """
-
-from fastapi import APIRouter, BackgroundTasks
+import logging
+from threading import Thread
+from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import Optional
-import logging
 
-from app.config import settings, supabase
-from app.modal.client import ModalClient
+from app.workers.style_trainer import train_profile
+from app.storage.db import get_style_profile, validate_style_profile_ownership
+from app.config import get_supabase
 
 router = APIRouter()
-logger = logging.getLogger("apelier.style")
+log = logging.getLogger(__name__)
 
 
-class TrainStyleRequest(BaseModel):
+class StyleProfileCreate(BaseModel):
     photographer_id: str
-    style_profile_id: str
-    # For reference-only training (existing method)
-    reference_keys: Optional[list[str]] = None
-    # For before/after pair training (new GPU method)
-    pairs: Optional[list[dict]] = None
-    # Training params
-    epochs: int = 200
+    name: str
+    description: Optional[str] = None
+    reference_image_keys: list[str] = []
+    settings: Optional[dict] = None
+    preset_file_key: Optional[str] = None  # v2.0: Lightroom preset storage key
 
 
-class TrainStatusResponse(BaseModel):
+class StyleProfileResponse(BaseModel):
+    id: str
+    name: str
     status: str
-    message: Optional[str] = None
-    model_key: Optional[str] = None
-    model_filename: Optional[str] = None
-    training_time_s: Optional[float] = None
+    message: str
 
 
-@router.post("/api/style/train")
-async def train_style(req: TrainStyleRequest, background_tasks: BackgroundTasks):
-    """
-    Start style model training.
-
-    Two modes:
-    1. pairs provided → GPU neural LUT training via Modal (preferred)
-    2. reference_keys provided → CPU histogram training (legacy fallback)
-    """
-    if req.pairs and len(req.pairs) >= 5:
-        # GPU training via Modal
-        logger.info(f"Starting GPU style training: {len(req.pairs)} pairs")
-        # Update style profile status
-        supabase.update("style_profiles", req.style_profile_id, {
-            "training_status": "training",
-            "training_method": "neural_lut",
-        })
-        background_tasks.add_task(
-            _train_neural_style,
-            req.photographer_id,
-            req.style_profile_id,
-            req.pairs,
-            req.epochs,
+@router.post("/create", response_model=StyleProfileResponse)
+async def create_style_profile(profile: StyleProfileCreate):
+    if len(profile.reference_image_keys) < 10:
+        return StyleProfileResponse(
+            id="", name=profile.name, status="error",
+            message=f"Need at least 10 reference images, got {len(profile.reference_image_keys)}",
         )
-        return {"status": "training", "message": f"Neural LUT training started with {len(req.pairs)} pairs"}
 
-    elif req.reference_keys and len(req.reference_keys) >= 5:
-        # CPU training (legacy — histogram method)
-        logger.info(f"Starting CPU style training: {len(req.reference_keys)} references")
-        supabase.update("style_profiles", req.style_profile_id, {
-            "training_status": "training",
-            "training_method": "histogram",
-        })
-        background_tasks.add_task(
-            _train_histogram_style,
-            req.photographer_id,
-            req.style_profile_id,
-            req.reference_keys,
+    # Build initial settings — include preset_file_key if provided
+    initial_settings = profile.settings or {}
+    if profile.preset_file_key:
+        initial_settings["preset_file_key"] = profile.preset_file_key
+        log.info(f"Preset file included: {profile.preset_file_key}")
+
+    sb = get_supabase()
+    row = sb.insert("style_profiles", {
+        "photographer_id": profile.photographer_id,
+        "name": profile.name,
+        "description": profile.description,
+        "reference_image_keys": profile.reference_image_keys,
+        "settings": initial_settings,
+        "status": "pending",
+    })
+
+    if not row:
+        return StyleProfileResponse(
+            id="", name=profile.name, status="error",
+            message="Failed to create style profile",
         )
-        return {"status": "training", "message": f"Histogram training started with {len(req.reference_keys)} references"}
 
-    else:
-        return {"status": "error", "message": "Need at least 5 before/after pairs or 5 reference images"}
+    profile_id = row["id"]
+
+    def train_in_thread():
+        try:
+            train_profile(profile_id)
+        except Exception as e:
+            log.error(f"Style training thread error: {e}")
+
+    thread = Thread(target=train_in_thread, daemon=True)
+    thread.start()
+
+    return StyleProfileResponse(
+        id=profile_id, name=profile.name, status="training",
+        message=f"Training started with {len(profile.reference_image_keys)} reference images"
+                f"{' + Lightroom preset' if profile.preset_file_key else ''}.",
+    )
 
 
-@router.get("/api/style/status/{style_profile_id}")
-async def get_training_status(style_profile_id: str):
-    """Check training status for a style profile."""
-    profile = supabase.select_single("style_profiles", {"id": style_profile_id})
+@router.get("/{profile_id}/status")
+async def get_training_status(profile_id: str):
+    profile = get_style_profile(profile_id)
     if not profile:
-        return {"status": "error", "message": "Style profile not found"}
+        return {"error": "Profile not found"}
     return {
-        "status": profile.get("training_status", "unknown"),
-        "training_method": profile.get("training_method"),
-        "model_key": profile.get("model_key"),
+        "id": profile["id"],
+        "name": profile["name"],
+        "status": profile["status"],
+        "reference_count": len(profile.get("reference_image_keys", [])),
+        "has_preset": bool(profile.get("settings", {}).get("preset_file_key")),
+        "version": profile.get("settings", {}).get("version", "1.0"),
+        "training_started_at": profile.get("training_started_at"),
+        "training_completed_at": profile.get("training_completed_at"),
     }
 
 
-async def _train_neural_style(
-    photographer_id: str,
-    style_profile_id: str,
-    pairs: list[dict],
-    epochs: int,
-):
-    """Background task: train neural LUT model via Modal GPU."""
-    modal_client = ModalClient()
-    try:
-        result = await modal_client.train_style(
-            photographer_id=photographer_id,
-            style_profile_id=style_profile_id,
-            pairs=pairs,
-            epochs=epochs,
-        )
-        if result.get("status") == "success":
-            supabase.update("style_profiles", style_profile_id, {
-                "training_status": "completed",
-                "model_key": result["model_key"],
-                "model_filename": result.get("model_filename"),
-                "training_time_s": result.get("training_time_s"),
-                "pairs_used": result.get("pairs_used"),
-            })
-            logger.info(f"Neural style training complete: {result['model_key']}")
-        else:
-            supabase.update("style_profiles", style_profile_id, {
-                "training_status": "failed",
-                "training_error": result.get("message", "Unknown error"),
-            })
-            logger.error(f"Neural style training failed: {result.get('message')}")
-    except Exception as e:
-        supabase.update("style_profiles", style_profile_id, {
-            "training_status": "failed",
-            "training_error": str(e),
-        })
-        logger.error(f"Neural style training error: {e}")
-    finally:
-        await modal_client.close()
+@router.post("/{profile_id}/retrain")
+async def retrain_profile(profile_id: str):
+    profile = get_style_profile(profile_id)
+    if not profile:
+        return {"error": "Profile not found"}
+    if not profile.get("reference_image_keys"):
+        return {"error": "No reference images to train from"}
 
+    def train_in_thread():
+        try:
+            train_profile(profile_id)
+        except Exception as e:
+            log.error(f"Re-training thread error: {e}")
 
-async def _train_histogram_style(
-    photographer_id: str,
-    style_profile_id: str,
-    reference_keys: list[str],
-):
-    """Background task: train histogram-based style (existing CPU method)."""
-    from app.workers.style_trainer import train_style_profile
-    try:
-        await train_style_profile(photographer_id, style_profile_id, reference_keys)
-        supabase.update("style_profiles", style_profile_id, {
-            "training_status": "completed",
-        })
-    except Exception as e:
-        supabase.update("style_profiles", style_profile_id, {
-            "training_status": "failed",
-            "training_error": str(e),
-        })
-        logger.error(f"Histogram style training error: {e}")
+    thread = Thread(target=train_in_thread, daemon=True)
+    thread.start()
+
+    return {"id": profile_id, "status": "training", "message": "Re-training started"}
