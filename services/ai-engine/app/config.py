@@ -95,10 +95,19 @@ class SupabaseClient:
         rows = r.json()
         return rows[0] if rows else None
 
-    def update(self, table: str, record_id: str, data: dict) -> Optional[dict]:
-        """Update a record by ID."""
-        params = {"id": f"eq.{record_id}"}
-        clean = self._sanitize(data)
+    def update(self, table: str, id_or_data, data_or_filters=None) -> Optional[dict]:
+        """Update records. Supports two patterns:
+        - update(table, record_id: str, data: dict) — by ID
+        - update(table, data: dict, filters: dict) — by filters (legacy)
+        """
+        if isinstance(id_or_data, str):
+            # Pattern: update(table, record_id, data)
+            params = {"id": f"eq.{id_or_data}"}
+            clean = self._sanitize(data_or_filters or {})
+        else:
+            # Pattern: update(table, data, filters)
+            params = data_or_filters or {}
+            clean = self._sanitize(id_or_data)
         r = httpx.patch(self._rest_url(table), headers=self.headers, json=clean, params=params, timeout=30)
         r.raise_for_status()
         rows = r.json()
