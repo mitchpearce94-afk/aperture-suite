@@ -349,6 +349,13 @@ export interface StyleProfile {
   description?: string;
   reference_image_keys: string[];
   model_weights_key?: string;
+  // Neural LUT fields (GPU training)
+  training_method?: 'histogram' | 'neural_lut';
+  model_key?: string;
+  model_filename?: string;
+  training_time_s?: number;
+  pairs_used?: number;
+  training_error?: string;
   settings: StyleSettings;
   status: StyleProfileStatus;
   training_started_at?: string;
