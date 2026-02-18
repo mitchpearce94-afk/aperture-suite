@@ -20,8 +20,7 @@ from typing import Optional
 
 from app.config import settings, supabase
 from app.pipeline.phase0_analysis import run_phase0
-# CPU style fallback removed — quality was unacceptable
-# Phase 1 requires GPU (Modal) + trained neural model
+from app.pipeline.phase1_style import run_phase1 as run_phase1_cpu
 from app.pipeline.phase4_composition import run_phase4
 from app.pipeline.phase5_output import run_phase5
 from app.modal.client import ModalClient
@@ -114,49 +113,58 @@ async def run_pipeline(
         await _update_phase(processing_job_id, "style", 0)
 
         if not use_gpu:
-            logger.error("Phase 1: Modal GPU unavailable. Cannot process.")
-            await _update_job_status(processing_job_id, "failed", error="GPU service unavailable. Please try again later.")
-            return
+            logger.warning("Phase 1: Modal GPU unavailable. Falling back to CPU style.")
 
         if not model_filename:
-            logger.error("Phase 1: No trained style model found. Train a style first.")
-            await _update_job_status(processing_job_id, "failed", error="No trained style profile. Go to Settings → Editing Style to train one.")
-            return
+            logger.warning("Phase 1: No trained style model. Falling back to CPU style.")
 
-        logger.info(f"Phase 1 (GPU): Applying neural style to {total_photos} images")
-        batch_items = []
-        for photo in photos:
-            if photo.get("original_key"):
-                edited_key = photo["original_key"].replace("uploads/", "edited/")
-                batch_items.append({
-                    "image_key": photo["original_key"],
-                    "output_key": edited_key,
-                })
+        if use_gpu and model_filename:
+            # GPU PATH: Neural LUT style transfer
+            logger.info(f"Phase 1 (GPU): Applying neural style to {total_photos} images")
+            batch_items = []
+            for photo in photos:
+                if photo.get("original_key"):
+                    edited_key = photo["original_key"].replace("uploads/", "edited/").replace("originals/", "edited/")
+                    if not edited_key.lower().endswith(('.jpg', '.jpeg')):
+                        edited_key = edited_key.rsplit('.', 1)[0] + '.jpg'
+                    batch_items.append({
+                        "image_key": photo["original_key"],
+                        "output_key": edited_key,
+                    })
 
-        # Process in batches of 20 to avoid timeout
-        BATCH_SIZE = 20
-        processed = 0
-        for batch_start in range(0, len(batch_items), BATCH_SIZE):
-            batch = batch_items[batch_start:batch_start + BATCH_SIZE]
-            result = await modal_client.apply_style_batch(
-                images=batch,
-                model_filename=model_filename,
-                jpeg_quality=95,
-            )
-            if result.get("status") == "error":
-                logger.error(f"GPU style batch failed: {result.get('message')}")
-                await _update_job_status(processing_job_id, "failed", error=f"GPU style failed: {result.get('message')}")
-                return
+            # Process in batches of 20 to avoid timeout
+            BATCH_SIZE = 20
+            processed = 0
+            for batch_start in range(0, len(batch_items), BATCH_SIZE):
+                batch = batch_items[batch_start:batch_start + BATCH_SIZE]
+                result = await modal_client.apply_style_batch(
+                    images=batch,
+                    model_filename=model_filename,
+                    jpeg_quality=95,
+                )
+                if result.get("status") == "error":
+                    logger.error(f"GPU style batch failed: {result.get('message')}")
+                    await _update_job_status(processing_job_id, "failed", error=f"GPU style failed: {result.get('message')}")
+                    return
 
-            processed += len(batch)
-            await _update_phase(processing_job_id, "style", processed)
+                processed += len(batch)
+                await _update_phase(processing_job_id, "style", processed)
 
-            # Update photo records with edited keys
-            for item, photo in zip(batch, photos[batch_start:batch_start + BATCH_SIZE]):
-                supabase.update("photos", photo["id"], {
-                    "edited_key": item["output_key"],
-                    "ai_edits": {**(photo.get("ai_edits") or {}), "style": "neural_lut"},
-                })
+                # Update photo records with edited keys
+                for item, photo in zip(batch, photos[batch_start:batch_start + BATCH_SIZE]):
+                    supabase.update("photos", photo["id"], {
+                        "edited_key": item["output_key"],
+                        "ai_edits": {**(photo.get("ai_edits") or {}), "style": "neural_lut"},
+                    })
+        else:
+            # CPU PATH: basic auto-adjustments (no neural style)
+            logger.info(f"Phase 1 (CPU): Applying basic adjustments to {total_photos} images")
+            for i, photo in enumerate(photos):
+                try:
+                    await run_phase1_cpu(photo, supabase)
+                except Exception as e:
+                    logger.error(f"CPU Phase 1 failed for {photo['id']}: {e}")
+                await _update_phase(processing_job_id, "style", i + 1)
 
         # ═══════════════════════════════════════════════════════
         # PHASE 2 — FACE RETOUCHING (GPU only — skip if unavailable)
@@ -290,7 +298,7 @@ async def _update_job_status(processing_job_id: str, status: str, error: str = N
     try:
         data = {"status": status}
         if error:
-            data["error"] = error
+            data["error_log"] = error
         supabase.update("processing_jobs", processing_job_id, data)
     except Exception as e:
         logger.warning(f"Failed to update job status: {e}")
