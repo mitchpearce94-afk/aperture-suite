@@ -279,8 +279,6 @@ export interface Gallery {
   status: GalleryStatus;
   view_count: number;
   photo_count?: number;
-  cover_thumb_key?: string;
-  cover_thumb_url?: string;
   created_at: string;
   updated_at: string;
 }

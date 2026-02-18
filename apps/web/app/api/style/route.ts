@@ -9,11 +9,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       action, profile_id, photographer_id, name, description,
-      reference_image_keys, settings, preset_file_key,
+      reference_image_keys, settings, preset_file_key, pairs,
     } = body;
 
     if (action === 'create') {
-      // Create and train a style profile via AI engine
+      // Create and train a style profile via AI engine (CPU histogram)
       if (!photographer_id || !name || !reference_image_keys?.length) {
         return NextResponse.json(
           { error: 'Missing photographer_id, name, or reference_image_keys' },
@@ -31,6 +31,31 @@ export async function POST(request: NextRequest) {
           reference_image_keys,
           settings: settings || null,
           preset_file_key: preset_file_key || null,
+        }),
+      });
+
+      const result = await response.json();
+      return NextResponse.json(result, { status: response.ok ? 200 : 500 });
+    }
+
+    if (action === 'train_neural') {
+      // Create and train a neural LUT style profile via AI engine → Modal GPU
+      if (!photographer_id || !name || !pairs?.length) {
+        return NextResponse.json(
+          { error: 'Missing photographer_id, name, or pairs' },
+          { status: 400 }
+        );
+      }
+
+      const response = await fetch(`${AI_ENGINE_URL}/api/style/create-neural`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          photographer_id,
+          name,
+          description: description || null,
+          reference_image_keys: reference_image_keys || [],
+          pairs,
         }),
       });
 
@@ -61,7 +86,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: 'Invalid action. Use "create", "status", or "retrain".' },
+      { error: 'Invalid action. Use "create", "train_neural", "status", or "retrain".' },
       { status: 400 }
     );
   } catch (err) {

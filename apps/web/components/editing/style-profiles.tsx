@@ -8,7 +8,7 @@ import { CreateStyleFlow } from './style-upload';
 import type { StyleProfile } from '@/lib/types';
 import {
   Sparkles, Plus, Trash2, RefreshCw, Loader2, Check, AlertCircle,
-  ImageIcon, Clock, Palette,
+  ImageIcon, Clock, Palette, Zap, Layers,
 } from 'lucide-react';
 
 export function StyleProfiles() {
@@ -41,11 +41,9 @@ export function StyleProfiles() {
 
     if (trainingProfiles.length > 0 && !pollingRef.current) {
       pollingRef.current = setInterval(async () => {
-        // Re-fetch all profiles to check for status updates
         const fresh = await getStyleProfiles();
         setProfiles(fresh);
 
-        // Stop polling if nothing is training anymore
         const stillTraining = fresh.some(
           (p) => p.status === 'pending' || p.status === 'training'
         );
@@ -53,7 +51,7 @@ export function StyleProfiles() {
           clearInterval(pollingRef.current);
           pollingRef.current = null;
         }
-      }, 5000); // Poll every 5 seconds
+      }, 5000);
     }
 
     return () => {
@@ -65,7 +63,6 @@ export function StyleProfiles() {
   }, [profiles]);
 
   const handleCreated = (profileId: string) => {
-    // Refresh profiles to show the new one (status: training)
     loadProfiles();
   };
 
@@ -95,7 +92,7 @@ export function StyleProfiles() {
 
   const statusConfig = {
     pending: { label: 'Pending', color: 'text-slate-400', bgColor: 'bg-slate-500/10', icon: Clock },
-    training: { label: 'Training...', color: 'text-indigo-400', bgColor: 'bg-indigo-500/10', icon: Loader2 },
+    training: { label: 'Training...', color: 'text-amber-400', bgColor: 'bg-amber-500/10', icon: Loader2 },
     ready: { label: 'Ready', color: 'text-emerald-400', bgColor: 'bg-emerald-500/10', icon: Check },
     error: { label: 'Failed', color: 'text-red-400', bgColor: 'bg-red-500/10', icon: AlertCircle },
   };
@@ -103,7 +100,7 @@ export function StyleProfiles() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
+        <Loader2 className="w-5 h-5 text-amber-400 animate-spin" />
       </div>
     );
   }
@@ -114,7 +111,7 @@ export function StyleProfiles() {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm text-slate-400">
-            Train the AI to replicate your editing style from reference images.
+            Train the AI to replicate your editing style. Create multiple styles for different looks.
           </p>
         </div>
         <Button size="sm" onClick={() => setCreateOpen(true)}>
@@ -125,13 +122,13 @@ export function StyleProfiles() {
       {/* Profiles list */}
       {profiles.length === 0 ? (
         <div className="rounded-xl border border-white/[0.06] bg-[#0c0c16] p-8 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 flex items-center justify-center mx-auto mb-4">
-            <Palette className="w-6 h-6 text-indigo-400" />
+          <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center mx-auto mb-4">
+            <Palette className="w-6 h-6 text-amber-400" />
           </div>
           <p className="text-sm font-medium text-slate-200 mb-1">No style profiles yet</p>
           <p className="text-xs text-slate-500 mb-4">
-            Create a style profile by uploading 50–300 of your best edited photos. The AI will learn your colour grading, 
-            white balance, contrast, and tonal preferences.
+            Create a style profile by uploading before/after pairs or edited references. The AI will learn your colour 
+            grading, white balance, contrast, and tonal preferences.
           </p>
           <Button size="sm" onClick={() => setCreateOpen(true)}>
             <Sparkles className="w-3 h-3" />Create Your First Style
@@ -143,6 +140,9 @@ export function StyleProfiles() {
             const config = statusConfig[profile.status];
             const StatusIcon = config.icon;
             const refCount = profile.reference_image_keys?.length || 0;
+            const isNeural = profile.training_method === 'neural_lut';
+            const pairsUsed = profile.pairs_used;
+            const trainingTime = profile.training_time_s;
 
             return (
               <div
@@ -166,17 +166,42 @@ export function StyleProfiles() {
                       <StatusIcon className={`w-2.5 h-2.5 ${profile.status === 'training' ? 'animate-spin' : ''}`} />
                       {config.label}
                     </span>
+                    {/* Training method badge */}
+                    {profile.status === 'ready' && (
+                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-medium ${
+                        isNeural ? 'bg-amber-500/10 text-amber-400' : 'bg-white/[0.04] text-slate-500'
+                      }`}>
+                        {isNeural ? <Zap className="w-2 h-2" /> : <Layers className="w-2 h-2" />}
+                        {isNeural ? 'GPU Neural' : 'CPU Basic'}
+                      </span>
+                    )}
                   </div>
                   {profile.description && (
                     <p className="text-[11px] text-slate-500 truncate mt-0.5">{profile.description}</p>
                   )}
                   <div className="flex items-center gap-3 mt-1.5">
-                    <span className="text-[10px] text-slate-600 flex items-center gap-1">
-                      <ImageIcon className="w-2.5 h-2.5" />{refCount} reference images
-                    </span>
+                    {isNeural && pairsUsed ? (
+                      <span className="text-[10px] text-slate-600 flex items-center gap-1">
+                        <ImageIcon className="w-2.5 h-2.5" />{pairsUsed} training pairs
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-600 flex items-center gap-1">
+                        <ImageIcon className="w-2.5 h-2.5" />{refCount} reference images
+                      </span>
+                    )}
+                    {trainingTime && (
+                      <span className="text-[10px] text-slate-600">
+                        Trained in {Math.round(trainingTime)}s
+                      </span>
+                    )}
                     {profile.training_completed_at && (
                       <span className="text-[10px] text-slate-600">
-                        Trained {new Date(profile.training_completed_at).toLocaleDateString()}
+                        {new Date(profile.training_completed_at).toLocaleDateString()}
+                      </span>
+                    )}
+                    {profile.training_error && profile.status === 'error' && (
+                      <span className="text-[10px] text-red-400/60 truncate max-w-[200px]">
+                        {profile.training_error}
                       </span>
                     )}
                   </div>
@@ -184,22 +209,12 @@ export function StyleProfiles() {
 
                 {/* Actions */}
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  {profile.status === 'ready' && (
+                  {(profile.status === 'ready' || profile.status === 'error') && (
                     <button
                       onClick={() => handleRetrain(profile.id)}
                       disabled={retrainingId === profile.id}
-                      className="p-2 text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-all disabled:opacity-50"
-                      title="Re-train"
-                    >
-                      <RefreshCw className={`w-3.5 h-3.5 ${retrainingId === profile.id ? 'animate-spin' : ''}`} />
-                    </button>
-                  )}
-                  {profile.status === 'error' && (
-                    <button
-                      onClick={() => handleRetrain(profile.id)}
-                      disabled={retrainingId === profile.id}
-                      className="p-2 text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-all disabled:opacity-50"
-                      title="Retry training"
+                      className="p-2 text-slate-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition-all disabled:opacity-50"
+                      title={profile.status === 'error' ? 'Retry training' : 'Re-train'}
                     >
                       <RefreshCw className={`w-3.5 h-3.5 ${retrainingId === profile.id ? 'animate-spin' : ''}`} />
                     </button>
