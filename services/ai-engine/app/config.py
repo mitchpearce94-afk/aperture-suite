@@ -14,10 +14,10 @@ class Settings(BaseSettings):
     storage_bucket: str = "photos"
     max_concurrent_images: int = 4
     web_res_max_px: int = 2048
-    thumb_max_px: int = 400
+    thumb_max_px: int = 800
     jpeg_quality: int = 95
     web_quality: int = 92
-    thumb_quality: int = 80
+    thumb_quality: int = 85
 
     class Config:
         env_file = ".env"
