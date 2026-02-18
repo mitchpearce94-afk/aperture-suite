@@ -219,10 +219,6 @@ export function GalleryDetail({ gallery: initialGallery, onBack, onUpdate }: Gal
       setDelivering(false);
       setShowDeliverConfirm(false);
 
-      // Auto-redirect back to galleries after 2.5 seconds
-      setTimeout(() => {
-        onBack();
-      }, 2500);
       return;
     }
     setDelivering(false);
@@ -265,7 +261,11 @@ export function GalleryDetail({ gallery: initialGallery, onBack, onUpdate }: Gal
             </div>
             <h3 className="text-lg font-bold text-white mb-2">Gallery Delivered!</h3>
             <p className="text-sm text-slate-400 mb-1">{deliverSuccessMessage}</p>
-            <p className="text-xs text-slate-600 mt-4">Redirecting back to galleries...</p>
+            <div className="mt-6">
+              <Button size="sm" onClick={() => { setShowDeliverSuccess(false); onBack(); }}>
+                Got it
+              </Button>
+            </div>
           </div>
         </div>
       )}

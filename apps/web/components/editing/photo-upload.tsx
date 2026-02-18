@@ -75,6 +75,8 @@ export function PhotoUpload({ onUploadComplete }: PhotoUploadProps) {
   const [packageLimit, setPackageLimit] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileMapRef = useRef<Map<string, File>>(new Map());
+  const uploadErrorsRef = useRef<{ name: string; reason: string }[]>([]);
+  const [errorModalFiles, setErrorModalFiles] = useState<{ name: string; reason: string }[]>([]);
 
   useEffect(() => {
     async function load() {
@@ -153,6 +155,7 @@ export function PhotoUpload({ onUploadComplete }: PhotoUploadProps) {
 
     setUploading(true);
     setUploadComplete(false);
+    uploadErrorsRef.current = [];
 
     try {
       const photographer = await getCurrentPhotographer();
@@ -175,8 +178,11 @@ export function PhotoUpload({ onUploadComplete }: PhotoUploadProps) {
         return;
       }
 
-      // Update job status to editing
-      await updateJob(selectedJob.id, { status: 'editing' as any });
+      // Only set job to 'editing' if it's not already further along in the pipeline
+      const earlyStatuses = ['upcoming', 'booked', 'confirmed', 'new', 'scheduled'];
+      if (!selectedJob.status || earlyStatuses.includes(selectedJob.status)) {
+        await updateJob(selectedJob.id, { status: 'editing' as any });
+      }
 
       // Upload each file sequentially
       for (let i = 0; i < files.length; i++) {
@@ -210,15 +216,28 @@ export function PhotoUpload({ onUploadComplete }: PhotoUploadProps) {
               prev.map((f) => (f.id === uploadFile.id ? { ...f, status: 'complete' as const, progress: 100 } : f))
             );
           } else {
+            const reason = 'Upload failed — the storage service returned an error. Try again or check your internet connection.';
+            uploadErrorsRef.current.push({ name: uploadFile.file.name, reason });
             setFiles((prev) =>
-              prev.map((f) => (f.id === uploadFile.id ? { ...f, status: 'error' as const, error: 'Upload failed' } : f))
+              prev.map((f) => (f.id === uploadFile.id ? { ...f, status: 'error' as const, error: reason } : f))
             );
           }
         } catch (err) {
+          const message = err instanceof Error ? err.message : 'Upload failed';
+          const reason = message.includes('Failed to fetch') || message.includes('NetworkError')
+            ? 'Network error — your internet connection may have dropped during upload.'
+            : message.includes('413') || message.includes('too large')
+            ? `File too large (${formatFileSize(actualFile.size)}).`
+            : message.includes('403') || message.includes('Forbidden')
+            ? 'Permission denied — your session may have expired. Try refreshing.'
+            : message.includes('500')
+            ? 'Server error — please try again in a moment.'
+            : `Upload error: ${message}`;
+          uploadErrorsRef.current.push({ name: uploadFile.file.name, reason });
           setFiles((prev) =>
             prev.map((f) =>
               f.id === uploadFile.id
-                ? { ...f, status: 'error' as const, error: err instanceof Error ? err.message : 'Upload failed' }
+                ? { ...f, status: 'error' as const, error: reason }
                 : f
             )
           );
@@ -227,6 +246,11 @@ export function PhotoUpload({ onUploadComplete }: PhotoUploadProps) {
 
       // Update gallery with photo count
       setUploadComplete(true);
+
+      // Show error modal if any files failed
+      if (uploadErrorsRef.current.length > 0) {
+        setErrorModalFiles([...uploadErrorsRef.current]);
+      }
 
       // Auto-trigger AI processing pipeline
       if (autoProcess && gallery) {
@@ -252,7 +276,10 @@ export function PhotoUpload({ onUploadComplete }: PhotoUploadProps) {
         }
       }
 
-      onUploadComplete();
+      // Only notify parent if no errors — if there are errors, the modal needs to stay visible
+      if (uploadErrorsRef.current.length === 0) {
+        onUploadComplete();
+      }
     } catch (err) {
       console.error('Upload error:', err);
     }
@@ -638,6 +665,39 @@ export function PhotoUpload({ onUploadComplete }: PhotoUploadProps) {
           </Button>
         )}
       </div>
+
+      {/* Error modal — stays until dismissed */}
+      {errorModalFiles.length > 0 && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center animate-in fade-in">
+          <div className="bg-[#0c0c16] border border-red-500/20 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center flex-shrink-0">
+                <FileWarning className="w-5 h-5 text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">
+                  {errorModalFiles.length} photo{errorModalFiles.length !== 1 ? 's' : ''} failed to upload
+                </h3>
+                <p className="text-xs text-slate-500">The remaining photos were uploaded successfully.</p>
+              </div>
+            </div>
+            <div className="space-y-2 max-h-48 overflow-y-auto mb-4">
+              {errorModalFiles.map((ef, idx) => (
+                <div key={idx} className="rounded-lg border border-red-500/10 bg-red-500/5 p-3">
+                  <p className="text-xs font-medium text-red-300 truncate">{ef.name}</p>
+                  <p className="text-[11px] text-red-400/70 mt-0.5">{ef.reason}</p>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] text-slate-600">You can re-upload these files after dismissing.</p>
+              <Button size="sm" onClick={() => { setErrorModalFiles([]); onUploadComplete(); }}>
+                OK
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

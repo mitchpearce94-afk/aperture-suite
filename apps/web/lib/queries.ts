@@ -823,7 +823,7 @@ export async function uploadPhotoToStorage(
 
   try {
     if (file.size > SIGNED_URL_THRESHOLD) {
-      // Get signed upload URL from our API
+      // Step 1: Get signed upload token from our API (uses admin/service role)
       const urlRes = await fetch('/api/upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -836,22 +836,20 @@ export async function uploadPhotoToStorage(
       const urlResult = await urlRes.json();
       if (!urlRes.ok || urlResult.error) {
         console.error('Failed to get signed upload URL:', urlResult.error);
-        return null;
+        throw new Error(urlResult.error || 'Failed to get upload URL');
       }
 
-      // Upload directly to Supabase Storage using the signed URL
-      const uploadRes = await fetch(urlResult.signedUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': file.type || 'application/octet-stream',
-        },
-        body: file,
-      });
+      // Step 2: Upload using Supabase client's uploadToSignedUrl (token-based, no RLS)
+      const sb = supabase();
+      const { data, error } = await sb.storage
+        .from('photos')
+        .uploadToSignedUrl(storageKey, urlResult.token, file, {
+          contentType: file.type || 'application/octet-stream',
+        });
 
-      if (!uploadRes.ok) {
-        const errText = await uploadRes.text();
-        console.error('Direct upload failed:', errText);
-        return null;
+      if (error) {
+        console.error('Signed URL upload failed:', error.message);
+        throw new Error(error.message);
       }
 
       return { storageKey, publicUrl: '' };
@@ -869,14 +867,14 @@ export async function uploadPhotoToStorage(
       const result = await res.json();
       if (!res.ok || result.error) {
         console.error('Error uploading file:', result.error);
-        return null;
+        throw new Error(result.error || 'Upload failed');
       }
 
       return { storageKey: result.storageKey, publicUrl: '' };
     }
   } catch (err) {
     console.error('Error uploading file:', err);
-    return null;
+    throw err;
   }
 }
 
