@@ -7,7 +7,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { getDashboardStats, getLeads, getJobs, getGalleries } from '@/lib/queries';
 import {
   DollarSign, Inbox, Briefcase, Calendar, ImageIcon, Wand2,
-  AlertCircle, ArrowRight, Users,
+  AlertCircle, ArrowRight, Users, ImageIcon,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -63,6 +63,7 @@ export default function DashboardPage() {
         <StatCard title="Active Leads" value={stats.activeLeads} icon={Inbox} />
         <StatCard title="Open Jobs" value={stats.openJobs} icon={Briefcase} />
         <StatCard title="Total Clients" value={stats.totalClients} icon={Users} />
+        <StatCard title="Edited This Month" value={stats.imagesEditedThisMonth || 0} icon={ImageIcon} />
       </div>
 
       {/* Content panels */}
