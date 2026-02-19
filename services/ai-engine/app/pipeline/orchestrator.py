@@ -237,18 +237,17 @@ async def run_pipeline(
                         logger.error(f"Failed to decode RAW for JPEG conversion: {filename}")
 
                 # Update DB
-                supabase.update("photos", photo["id"], photo_update)
-
                 # Update DB
                 supabase.update("photos", photo["id"], photo_update)
 
                 # Update local state
-                ps = photo_state[photo["id"]]
                 ps["quality_score"] = quality_int
                 ps["face_data"] = face_data
                 ps["scene_type"] = analysis.get("scene_type")
+                if photo_update.get("edited_key"):
+                    ps["edited_key"] = photo_update["edited_key"]
 
-                # Cache for later phases
+                # Cache image bytes for later phases (avoids re-downloading)
                 photo["_img_bytes"] = img_bytes
 
             except Exception as e:
@@ -310,124 +309,33 @@ async def run_pipeline(
             await _update_phase(processing_job_id, "style", total_photos)
 
         # ═══════════════════════════════════════════════════════
-        # PHASE 2 — FACE RETOUCHING (GPU — skip if unavailable)
+        # PHASE 2 — FACE RETOUCHING (GPU)
+        # Currently disabled: Modal face_retouch endpoint returns 500.
+        # Will re-enable once the endpoint is deployed and tested.
         # ═══════════════════════════════════════════════════════
         await _update_phase(processing_job_id, "retouch", 0)
-
-        if use_gpu:
-            logger.info(f"Phase 2 (GPU): Face retouching {total_photos} images")
-            for i, photo in enumerate(photos):
-                try:
-                    ps = photo_state[photo["id"]]
-                    face_data = ps["face_data"]
-                    if face_data and len(face_data) > 0:
-                        edited_key = ps["edited_key"] or photo["original_key"].replace("uploads/", "edited/")
-                        result = await modal_client.face_retouch(
-                            image_key=edited_key,
-                            output_key=edited_key,
-                            fidelity=0.7,
-                            face_data=face_data,
-                        )
-                        if result.get("status") == "success":
-                            ps["ai_edits"]["face_retouch"] = {
-                                "faces": result.get("faces_found", 0),
-                                "fidelity": 0.7,
-                            }
-                            supabase.update("photos", photo["id"], {
-                                "ai_edits": ps["ai_edits"],
-                            })
-                except Exception as e:
-                    logger.error(f"Phase 2 failed for {photo['id']}: {e}")
-                await _update_phase(processing_job_id, "retouch", i + 1)
-        else:
-            logger.info("Phase 2: Skipped (GPU unavailable)")
-            await _update_phase(processing_job_id, "retouch", total_photos)
+        logger.info("Phase 2: Face retouching skipped (endpoint not ready)")
+        await _update_phase(processing_job_id, "retouch", total_photos)
 
         # ═══════════════════════════════════════════════════════
-        # PHASE 3 — SCENE CLEANUP (GPU — skip if unavailable)
+        # PHASE 3 — SCENE CLEANUP (GPU)
+        # Currently disabled: Modal scene_cleanup endpoint unreliable.
+        # Will re-enable once the endpoint is deployed and tested.
         # ═══════════════════════════════════════════════════════
         await _update_phase(processing_job_id, "cleanup", 0)
-
-        if use_gpu:
-            logger.info(f"Phase 3 (GPU): Scene cleanup on {total_photos} images")
-            for i, photo in enumerate(photos):
-                try:
-                    ps = photo_state[photo["id"]]
-                    edited_key = ps["edited_key"] or photo["original_key"].replace("uploads/", "edited/")
-                    result = await modal_client.scene_cleanup(
-                        image_key=edited_key,
-                        output_key=edited_key,
-                        detections=["power_lines", "exit_signs"],
-                    )
-                    if result.get("status") == "success" and result.get("detections_found", 0) > 0:
-                        ps["ai_edits"]["scene_cleanup"] = {
-                            "detections": result.get("detections_found", 0),
-                            "coverage_pct": result.get("mask_coverage_pct", 0),
-                        }
-                        supabase.update("photos", photo["id"], {
-                            "ai_edits": ps["ai_edits"],
-                        })
-                except Exception as e:
-                    logger.error(f"Phase 3 failed for {photo['id']}: {e}")
-                await _update_phase(processing_job_id, "cleanup", i + 1)
-        else:
-            logger.info("Phase 3: Skipped (GPU unavailable)")
-            await _update_phase(processing_job_id, "cleanup", total_photos)
+        logger.info("Phase 3: Scene cleanup skipped (endpoint not ready)")
+        await _update_phase(processing_job_id, "cleanup", total_photos)
 
         # ═══════════════════════════════════════════════════════
-        # PHASE 4 — COMPOSITION (CPU)
+        # PHASE 4 — COMPOSITION (CPU) — DISABLED
+        # Horizon detection produces too many false positives.
+        # Skip entirely until we have a more reliable detection method.
         # ═══════════════════════════════════════════════════════
         await _update_phase(processing_job_id, "composition", 0)
-
+        logger.info("Phase 4: Composition corrections disabled (pending improved detection)")
         for i, photo in enumerate(photos):
-            try:
-                ps = photo_state[photo["id"]]
-                source_key = ps["edited_key"] or photo["original_key"]
-                img_bytes = supabase.storage_download(bucket, source_key)
-                if not img_bytes:
-                    logger.warning(f"Could not download {source_key} for composition, skipping")
-                    await _update_phase(processing_job_id, "composition", i + 1)
-                    continue
-
-                img_array = _decode_image_bytes(img_bytes, photo.get("filename", ""))
-                if img_array is None:
-                    logger.warning(f"Could not decode {source_key}, skipping composition")
-                    await _update_phase(processing_job_id, "composition", i + 1)
-                    continue
-
-                face_boxes = ps["face_data"]
-                result_img, comp_meta = fix_composition(img_array, face_boxes=face_boxes)
-
-                # Build composition data
-                comp_data = {"evaluated": True, "changes": False}
-                if comp_meta.get("straightened"):
-                    comp_data["horizon_corrected"] = True
-                    comp_data["horizon_angle"] = comp_meta["horizon_angle"]
-                    comp_data["changes"] = True
-                if comp_meta.get("cropped"):
-                    comp_data["crop_applied"] = True
-                    comp_data["crop_rect"] = comp_meta["crop_rect"]
-                    comp_data["changes"] = True
-
-                # Re-upload if composition changed the image
-                if comp_data["changes"]:
-                    output_key = ps["edited_key"] or photo["original_key"].replace("uploads/", "edited/")
-                    if not output_key.lower().endswith((".jpg", ".jpeg")):
-                        output_key = output_key.rsplit(".", 1)[0] + ".jpg"
-                    _, buffer = cv2.imencode(".jpg", result_img, [cv2.IMWRITE_JPEG_QUALITY, 95])
-                    supabase.storage_upload(bucket, output_key, buffer.tobytes())
-                    ps["edited_key"] = output_key
-
-                ps["ai_edits"]["composition"] = comp_data
-                supabase.update("photos", photo["id"], {
-                    "ai_edits": ps["ai_edits"],
-                })
-
-                # Cache processed image for Phase 5
-                photo["_processed_img"] = result_img
-
-            except Exception as e:
-                logger.error(f"Phase 4 failed for {photo['id']}: {e}")
+            ps = photo_state[photo["id"]]
+            ps["ai_edits"]["composition"] = {"evaluated": True, "changes": False, "skipped": True}
             await _update_phase(processing_job_id, "composition", i + 1)
 
         # ═══════════════════════════════════════════════════════
@@ -439,13 +347,19 @@ async def run_pipeline(
             try:
                 ps = photo_state[photo["id"]]
 
-                # Get the processed image (from phase 4 cache or download)
+                # Get the processed image — prefer cache, avoid re-download
                 img_array = photo.get("_processed_img")
                 if img_array is None:
-                    source_key = ps["edited_key"] or photo["original_key"]
-                    img_bytes = supabase.storage_download(bucket, source_key)
-                    if img_bytes:
-                        img_array = _decode_image_bytes(img_bytes, photo.get("filename", ""))
+                    # Try cached bytes from Phase 0
+                    cached_bytes = photo.get("_img_bytes")
+                    if cached_bytes:
+                        img_array = _decode_image_bytes(cached_bytes, photo.get("filename", ""))
+                    else:
+                        # Last resort: download
+                        source_key = ps["edited_key"] or photo["original_key"]
+                        img_bytes = supabase.storage_download(bucket, source_key)
+                        if img_bytes:
+                            img_array = _decode_image_bytes(img_bytes, photo.get("filename", ""))
 
                 if img_array is None:
                     logger.warning(f"No image data for {photo['id']}, skipping output generation")
@@ -522,7 +436,7 @@ async def run_pipeline(
                 "photographer_uuid": photographer_id,
                 "count": total_photos,
             }, timeout=10)
-            if resp.status_code == 200:
+            if resp.status_code in (200, 204):
                 logger.info(f"Incremented images_edited_count by {total_photos}")
             else:
                 logger.warning(f"Failed to increment counter: {resp.status_code} {resp.text}")
