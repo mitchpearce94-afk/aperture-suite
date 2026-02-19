@@ -58,7 +58,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard title="Revenue" value={formatCurrency(stats.totalRevenue)} icon={DollarSign} />
         <StatCard title="Active Leads" value={stats.activeLeads} icon={Inbox} />
         <StatCard title="Open Jobs" value={stats.openJobs} icon={Briefcase} />
