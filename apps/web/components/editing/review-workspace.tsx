@@ -225,18 +225,16 @@ export function ReviewWorkspace({ processingJob, onBack }: { processingJob: Proc
   useEffect(() => {
     async function loadPhotos() {
       try {
-        if (!processingJob.gallery_id) throw new Error('No gallery_id');
-        const data = await getPhotosWithUrls(processingJob.gallery_id);
-        if (data.length > 0) {
-          setPhotos(data);
-          setUseMockData(false);
-        } else {
-          setPhotos(generateMockPhotos() as PhotoWithUrls[]);
-          setUseMockData(true);
+        if (!processingJob.gallery_id) {
+          setPhotos([]);
+          setLoading(false);
+          return;
         }
+        const data = await getPhotosWithUrls(processingJob.gallery_id);
+        setPhotos(data);
+        setUseMockData(false);
       } catch {
-        setPhotos(generateMockPhotos() as PhotoWithUrls[]);
-        setUseMockData(true);
+        setPhotos([]);
       }
       setLoading(false);
     }
