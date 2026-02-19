@@ -32,14 +32,13 @@ interface PackageItem {
   deposit_percent: number;
 }
 
-type SettingsTab = 'profile' | 'packages' | 'contract' | 'branding' | 'gallery' | 'editing_style' | 'notifications' | 'billing';
+type SettingsTab = 'profile' | 'packages' | 'contract' | 'branding' | 'editing_style' | 'notifications' | 'billing';
 
 const tabs: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
   { id: 'profile', label: 'Business Profile', icon: User },
   { id: 'packages', label: 'Packages', icon: Package },
   { id: 'contract', label: 'Contract Template', icon: FileSignature },
   { id: 'branding', label: 'Branding', icon: Palette },
-  { id: 'gallery', label: 'Gallery', icon: ImageIcon },
   { id: 'editing_style', label: 'Editing Style', icon: Wand2 },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'billing', label: 'Billing', icon: CreditCard },
@@ -167,16 +166,6 @@ export default function SettingsPage() {
           custom_domain: p.brand_settings.custom_domain || '',
         }));
       }
-      // Load gallery defaults from photographer record
-      const pg = p as any;
-      setBrandForm((prev) => ({
-        ...prev,
-        gallery_default_expiry_days: pg.gallery_default_expiry_days ?? 30,
-        gallery_default_access_type: pg.gallery_default_access_type || 'public',
-        gallery_default_download_full_res: pg.gallery_default_download_full_res ?? true,
-        gallery_default_download_web: pg.gallery_default_download_web ?? true,
-        gallery_watermark: pg.gallery_default_watermark ?? true,
-      }));
       // Load contract template
       setContractTemplate(p.contract_template || DEFAULT_CONTRACT);
       // Load signature
@@ -333,7 +322,7 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="w-6 h-6 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
       </div>
     );
   }
@@ -495,12 +484,12 @@ export default function SettingsPage() {
                     <Input label="Other Deliverables" value={editingPackage.deliverables} onChange={(e) => setEditingPackage({ ...editingPackage, deliverables: e.target.value })} placeholder="e.g. USB drive, print credits, engagement shoot" />
                     <Textarea label="Description" value={editingPackage.description} onChange={(e) => setEditingPackage({ ...editingPackage, description: e.target.value })} placeholder="What's included in this package..." />
                     <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={editingPackage.is_active} onChange={(e) => setEditingPackage({ ...editingPackage, is_active: e.target.checked })} className="rounded border-white/[0.08] bg-white/[0.04] text-indigo-500 focus:ring-indigo-500/20" />
+                      <input type="checkbox" checked={editingPackage.is_active} onChange={(e) => setEditingPackage({ ...editingPackage, is_active: e.target.checked })} className="rounded border-white/[0.08] bg-white/[0.04] text-amber-500 focus:ring-amber-500/20" />
                       <span className="text-sm text-slate-400">Active (show in quotes)</span>
                     </label>
                     <div className="rounded-lg border border-white/[0.06] p-3 space-y-3">
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={editingPackage.require_deposit} onChange={(e) => setEditingPackage({ ...editingPackage, require_deposit: e.target.checked })} className="rounded border-white/[0.08] bg-white/[0.04] text-indigo-500 focus:ring-indigo-500/20" />
+                        <input type="checkbox" checked={editingPackage.require_deposit} onChange={(e) => setEditingPackage({ ...editingPackage, require_deposit: e.target.checked })} className="rounded border-white/[0.08] bg-white/[0.04] text-amber-500 focus:ring-amber-500/20" />
                         <span className="text-sm text-slate-400">Require deposit to secure booking</span>
                       </label>
                       {editingPackage.require_deposit && (
@@ -549,7 +538,7 @@ export default function SettingsPage() {
                       value={contractTemplate}
                       onChange={(e) => setContractTemplate(e.target.value)}
                       rows={30}
-                      className="w-full px-4 py-3 text-sm bg-white/[0.04] border border-white/[0.08] rounded-lg text-slate-300 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 transition-all font-mono resize-y leading-relaxed"
+                      className="w-full px-4 py-3 text-sm bg-white/[0.04] border border-white/[0.08] rounded-lg text-slate-300 placeholder:text-slate-600 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/20 transition-all font-mono resize-y leading-relaxed"
                     />
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
@@ -557,7 +546,7 @@ export default function SettingsPage() {
                         <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-600 mb-2">Merge Tags</p>
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {['{{client_name}}', '{{client_email}}', '{{job_date}}', '{{job_time}}', '{{job_location}}', '{{package_name}}', '{{package_amount}}', '{{included_images}}', '{{business_name}}', '{{photographer_name}}', '{{today_date}}'].map((tag) => (
-                            <button key={tag} type="button" onClick={() => setContractTemplate((prev) => prev + tag)} className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.04] text-indigo-400 border border-white/[0.06] hover:bg-white/[0.08] transition-colors cursor-pointer">{tag}</button>
+                            <button key={tag} type="button" onClick={() => setContractTemplate((prev) => prev + tag)} className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.04] text-amber-400 border border-white/[0.06] hover:bg-white/[0.08] transition-colors cursor-pointer">{tag}</button>
                           ))}
                         </div>
                       </div>
@@ -608,7 +597,7 @@ export default function SettingsPage() {
               <div className="rounded-lg border border-white/[0.06] p-3">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-600 mb-2">How it works</p>
                 <div className="space-y-1.5 text-xs text-slate-500">
-                  <p>• Merge tags like <span className="text-indigo-400">{'{{client_name}}'}</span> are replaced with real data when the contract is generated.</p>
+                  <p>• Merge tags like <span className="text-amber-400">{'{{client_name}}'}</span> are replaced with real data when the contract is generated.</p>
                   <p>• Conditional blocks like <span className="text-amber-400">{'{{#if deposit}}'}</span> are only included when relevant.</p>
                   <p>• The contract adapts automatically — you write one template, it handles every job type.</p>
                   <p>• Clients receive a link to view and electronically sign the contract.</p>
@@ -738,27 +727,45 @@ export default function SettingsPage() {
                 </div>
               </Section>
 
+              <Section title="Gallery Settings" description="Defaults for new client galleries.">
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] text-slate-500 mb-1">Default Expiry</label>
+                    <select value={brandForm.gallery_default_expiry_days} onChange={(e) => setBrandForm({ ...brandForm, gallery_default_expiry_days: Number(e.target.value) })}
+                      className="w-full text-xs bg-[#12121e] border border-white/[0.08] rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-amber-500/50"
+                      style={{ colorScheme: 'dark' }}>
+                      <option value={7}>7 days</option>
+                      <option value={14}>14 days</option>
+                      <option value={21}>21 days</option>
+                      <option value={30}>30 days</option>
+                      <option value={60}>60 days</option>
+                      <option value={90}>90 days</option>
+                      <option value={0}>No expiry</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-500 mb-1">Default Access Type</label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {(['public', 'password', 'email'] as const).map((type) => (
+                        <button key={type} onClick={() => setBrandForm({ ...brandForm, gallery_default_access_type: type })}
+                          className={`px-2 py-1.5 text-[11px] rounded-lg border capitalize transition-all ${
+                            brandForm.gallery_default_access_type === type ? 'border-amber-500/40 bg-amber-500/10 text-amber-300' : 'border-white/[0.06] bg-white/[0.02] text-slate-500 hover:text-slate-300'
+                          }`}>{type}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <ToggleRow label="Show watermark on preview images" checked={brandForm.gallery_watermark} onChange={(v) => setBrandForm({ ...brandForm, gallery_watermark: v })} />
+                  <ToggleRow label="Allow full resolution downloads" checked={brandForm.gallery_default_download_full_res} onChange={(v) => setBrandForm({ ...brandForm, gallery_default_download_full_res: v })} />
+                  <ToggleRow label="Allow web-size downloads" checked={brandForm.gallery_default_download_web} onChange={(v) => setBrandForm({ ...brandForm, gallery_default_download_web: v })} />
+                </div>
+              </Section>
+
               <Section title="Custom Domain" description="Use your own domain for client galleries (e.g. gallery.yourbusiness.com). Requires Pro plan.">
                 <Input value={brandForm.custom_domain} onChange={(e) => setBrandForm({ ...brandForm, custom_domain: e.target.value })} placeholder="gallery.yourbusiness.com" disabled />
                 <p className="text-xs text-slate-600">Coming soon — available on Pro plan</p>
               </Section>
 
-              <Button onClick={async () => {
-                if (!photographer) return;
-                setSaving(true);
-                const sb = createSupabaseClient();
-                await sb.from('photographers').update({
-                  brand_settings: {
-                    ...photographer.brand_settings,
-                    primary_color: brandForm.primary_color,
-                    secondary_color: brandForm.secondary_color,
-                    custom_domain: brandForm.custom_domain,
-                  },
-                }).eq('id', photographer.id);
-                setSaving(false);
-                setSaved(true);
-                setTimeout(() => setSaved(false), 2000);
-              }}>
+              <Button onClick={() => { /* TODO: save to Supabase */ setSaved(true); setTimeout(() => setSaved(false), 2000); }}>
                 {saved ? <><Check className="w-3.5 h-3.5" />Saved</> : <><Save className="w-3.5 h-3.5" />Save Branding</>}
               </Button>
             </div>
@@ -790,68 +797,7 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* ==================== GALLERY ==================== */}
-          {activeTab === 'gallery' && (
-            <div className="space-y-6">
-              <Section title="Global Gallery Settings" description="These defaults apply to all new client galleries. Per-gallery overrides for title, description, password, and downloads can be set on individual gallery pages.">
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-[11px] text-slate-500 mb-1">Default Expiry</label>
-                    <select value={brandForm.gallery_default_expiry_days} onChange={(e) => setBrandForm({ ...brandForm, gallery_default_expiry_days: Number(e.target.value) })}
-                      className="w-full text-xs bg-[#12121e] border border-white/[0.08] rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-indigo-500/50"
-                      style={{ colorScheme: 'dark' }}>
-                      <option value={7}>7 days</option>
-                      <option value={14}>14 days</option>
-                      <option value={21}>21 days</option>
-                      <option value={30}>30 days</option>
-                      <option value={60}>60 days</option>
-                      <option value={90}>90 days</option>
-                      <option value={0}>No expiry</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[11px] text-slate-500 mb-1">Default Access Type</label>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {(['public', 'password', 'email'] as const).map((type) => (
-                        <button key={type} onClick={() => setBrandForm({ ...brandForm, gallery_default_access_type: type })}
-                          className={`px-2 py-1.5 text-[11px] rounded-lg border capitalize transition-all ${
-                            brandForm.gallery_default_access_type === type ? 'border-indigo-500/40 bg-indigo-500/10 text-indigo-300' : 'border-white/[0.06] bg-white/[0.02] text-slate-500 hover:text-slate-300'
-                          }`}>{type}</button>
-                      ))}
-                    </div>
-                    <p className="text-[10px] text-slate-600 mt-1.5">When set to &quot;password&quot;, each gallery will require you to set a password before delivery.</p>
-                  </div>
-                  <ToggleRow label="Show watermark on preview images" checked={brandForm.gallery_watermark} onChange={(v) => setBrandForm({ ...brandForm, gallery_watermark: v })} />
-                  <ToggleRow label="Allow full resolution downloads" checked={brandForm.gallery_default_download_full_res} onChange={(v) => setBrandForm({ ...brandForm, gallery_default_download_full_res: v })} />
-                  <ToggleRow label="Allow web-size downloads" checked={brandForm.gallery_default_download_web} onChange={(v) => setBrandForm({ ...brandForm, gallery_default_download_web: v })} />
-                </div>
-              </Section>
-
-              <Button onClick={async () => {
-                if (!photographer) return;
-                setSaving(true);
-                const sb = createSupabaseClient();
-                const { error } = await sb.from('photographers').update({
-                  gallery_default_expiry_days: brandForm.gallery_default_expiry_days,
-                  gallery_default_access_type: brandForm.gallery_default_access_type,
-                  gallery_default_download_full_res: brandForm.gallery_default_download_full_res,
-                  gallery_default_download_web: brandForm.gallery_default_download_web,
-                  gallery_default_watermark: brandForm.gallery_watermark,
-                }).eq('id', photographer.id);
-                setSaving(false);
-                if (error) {
-                  console.error('Failed to save gallery settings:', error);
-                } else {
-                  setSaved(true);
-                  setTimeout(() => setSaved(false), 2000);
-                }
-              }}>
-                {saved ? <><Check className="w-3.5 h-3.5" />Saved</> : <><Save className="w-3.5 h-3.5" />Save Gallery Settings</>}
-              </Button>
-            </div>
-          )}
-
-          {/* ==================== EDITING STYLE ==================== */}
+          {/* ==================== BILLING ==================== */}
           {activeTab === 'editing_style' && (
             <EditingStyleSection photographerId={photographer?.id} />
           )}
@@ -859,13 +805,13 @@ export default function SettingsPage() {
           {activeTab === 'billing' && (
             <div className="space-y-6">
               <Section title="Current Plan" description="Manage your Apelier subscription.">
-                <div className="p-4 rounded-xl border border-indigo-500/20 bg-indigo-500/5">
+                <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5">
                   <div className="flex items-center justify-between mb-2">
                     <div>
                       <h3 className="text-sm font-semibold text-white">Free Trial</h3>
                       <p className="text-xs text-slate-500">14 days remaining</p>
                     </div>
-                    <span className="text-xs px-2 py-1 rounded-full bg-indigo-500/20 text-indigo-300 font-medium">Trial</span>
+                    <span className="text-xs px-2 py-1 rounded-full bg-amber-500/20 text-amber-300 font-medium">Trial</span>
                   </div>
                   <p className="text-xs text-slate-500 mb-3">Includes all features. No credit card required.</p>
                   <Button size="sm">Upgrade Plan</Button>
@@ -1347,7 +1293,7 @@ function EditingStyleSection({ photographerId }: { photographerId?: string }) {
   if (loadingStyle) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="w-6 h-6 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
       </div>
     );
   }
@@ -1427,8 +1373,8 @@ function EditingStyleSection({ photographerId }: { photographerId?: string }) {
         {styleStatus === 'none' && (
           <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center flex-shrink-0">
-                <Sparkles className="w-5 h-5 text-indigo-400" />
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                <Sparkles className="w-5 h-5 text-amber-400" />
               </div>
               <div>
                 <p className="text-sm font-medium text-slate-200 mb-1">Teach the AI your editing style</p>
@@ -1544,7 +1490,7 @@ function EditingStyleSection({ photographerId }: { photographerId?: string }) {
           onDragLeave={() => setDragOver(false)}
           onClick={() => !uploading && fileInputRef.current?.click()}
           className={`rounded-xl border-2 border-dashed transition-all ${
-            dragOver ? 'border-indigo-500 bg-indigo-500/5' : 'border-white/[0.08] bg-white/[0.02] hover:border-white/[0.15]'
+            dragOver ? 'border-amber-500 bg-amber-500/5' : 'border-white/[0.08] bg-white/[0.02] hover:border-white/[0.15]'
           } ${uploading ? 'opacity-80' : 'cursor-pointer'}`}
         >
           <input
@@ -1558,8 +1504,8 @@ function EditingStyleSection({ photographerId }: { photographerId?: string }) {
 
           {files.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 px-4">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center mb-3">
-                <Upload className="w-5 h-5 text-indigo-400" />
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center mb-3">
+                <Upload className="w-5 h-5 text-amber-400" />
               </div>
               <p className="text-sm font-medium text-slate-200 mb-1">
                 {existingCount > 0 ? 'Add more reference images' : 'Drop your edited photos here'}
@@ -1570,7 +1516,7 @@ function EditingStyleSection({ photographerId }: { photographerId?: string }) {
             <div className="p-3" onClick={(e) => e.stopPropagation()}>
               {uploading && (
                 <div className="flex items-center gap-2 mb-2 px-1">
-                  <Loader2 className="w-3 h-3 text-indigo-400 animate-spin" />
+                  <Loader2 className="w-3 h-3 text-amber-400 animate-spin" />
                   <p className="text-xs text-slate-400">
                     Uploading {files.filter((f) => f.status === 'complete').length} / {files.length} images ({uploadProgress}%)
                   </p>
@@ -1614,7 +1560,7 @@ function EditingStyleSection({ photographerId }: { photographerId?: string }) {
                 {totalImages < STYLE_MAX_IMAGES && !uploading && (
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="aspect-square rounded border border-dashed border-white/[0.1] flex items-center justify-center hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-all"
+                    className="aspect-square rounded border border-dashed border-white/[0.1] flex items-center justify-center hover:border-amber-500/40 hover:bg-amber-500/5 transition-all"
                   >
                     <span className="text-lg text-slate-600">+</span>
                   </button>
@@ -1641,21 +1587,21 @@ function EditingStyleSection({ photographerId }: { photographerId?: string }) {
 
         {/* Upload progress */}
         {uploading && (
-          <div className="rounded-lg border border-indigo-500/20 bg-indigo-500/5 p-3">
+          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
             <div className="flex items-center gap-2 mb-2">
-              <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
-              <span className="text-xs font-medium text-indigo-300">
+              <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+              <span className="text-xs font-medium text-amber-300">
                 {uploadPhase === 'starting' ? 'Starting AI training...' : `Uploading... ${uploadProgress}%`}
               </span>
             </div>
-            <div className="h-1.5 bg-indigo-500/10 rounded-full overflow-hidden">
-              <div className="h-full bg-indigo-500 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+            <div className="h-1.5 bg-amber-500/10 rounded-full overflow-hidden">
+              <div className="h-full bg-amber-500 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
             </div>
             {uploadPhase !== 'starting' && (
-              <p className="text-[10px] text-indigo-400/60 mt-2">Please don&apos;t close or leave this page while uploading. Training will continue in the background once uploads finish.</p>
+              <p className="text-[10px] text-amber-400/60 mt-2">Please don&apos;t close or leave this page while uploading. Training will continue in the background once uploads finish.</p>
             )}
             {uploadPhase === 'starting' && (
-              <p className="text-[10px] text-indigo-400/60 mt-2">You&apos;re free to leave this page now — training happens in the background. Come back anytime to check progress.</p>
+              <p className="text-[10px] text-amber-400/60 mt-2">You&apos;re free to leave this page now — training happens in the background. Come back anytime to check progress.</p>
             )}
           </div>
         )}
@@ -1719,7 +1665,7 @@ function ToggleRow({ label, checked, onChange }: { label: string; checked: boole
         onClick={() => onChange(!checked)}
         className={cn(
           'relative w-9 h-5 rounded-full transition-colors flex-shrink-0',
-          checked ? 'bg-indigo-500' : 'bg-white/[0.08]'
+          checked ? 'bg-amber-500' : 'bg-white/[0.08]'
         )}
       >
         <div className={cn(
