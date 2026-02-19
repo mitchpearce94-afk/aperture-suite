@@ -175,7 +175,7 @@ export function GalleryDetail({ gallery: initialGallery, onBack, onUpdate }: Gal
 
   const handleDeliver = async () => {
     // Check password requirement
-    if (gallery.access_type === 'password' && !gallery.password) {
+    if (gallery.access_type === 'password' && !(gallery as any).password) {
       alert('This gallery requires a password before delivery. Please set a password in the gallery settings.');
       return;
     }
