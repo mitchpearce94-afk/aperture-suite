@@ -141,23 +141,25 @@ async def run_pipeline(
 
         for i, photo in enumerate(photos):
             try:
+                ps = photo_state[photo["id"]]
                 img_bytes = supabase.storage_download(bucket, photo["original_key"])
                 if not img_bytes:
                     logger.warning(f"Could not download {photo['original_key']}, skipping")
                     continue
 
-                analysis = analyse_image(img_bytes, filename=photo.get("filename", ""))
+                filename = photo.get("filename", "")
+                analysis = analyse_image(img_bytes, filename=filename)
 
                 if analysis.get("error"):
                     logger.warning(f"Phase 0 analysis error for {photo['id']}: {analysis['error']}")
                     await _update_phase(processing_job_id, "analysis", i + 1)
                     continue
 
-                # Cast quality_score to int (DB column is INTEGER with CHECK 0-100)
+                # Cast quality_score to int (DB column is INTEGER CHECK 0-100)
                 raw_quality = analysis.get("quality_score", 50)
                 quality_int = max(0, min(100, int(round(raw_quality))))
 
-                # Sanitise face_data — ensure all values are native Python types
+                # Sanitise face_data
                 face_data = []
                 for face in (analysis.get("face_data") or []):
                     face_data.append({
@@ -165,23 +167,20 @@ async def run_pipeline(
                         "eyes_open": bool(face.get("eyes_open", True)),
                     })
 
-                # Sanitise exif_data — strip any non-JSON-serializable values
+                # Sanitise exif_data
+                import json as _json
                 exif_raw = analysis.get("exif_data") or {}
                 exif_clean = {}
                 for k, v in exif_raw.items():
                     if isinstance(v, (str, int, float, bool, type(None))):
                         exif_clean[k] = v
-                    elif isinstance(v, (list, dict)):
+                    else:
                         try:
-                            import json
-                            json.dumps(v)  # Test serialisability
+                            _json.dumps(v)
                             exif_clean[k] = v
                         except (TypeError, ValueError):
                             exif_clean[k] = str(v)
-                    else:
-                        exif_clean[k] = str(v)
 
-                # For RAW files: upload a web-viewable JPEG preview so the frontend can display it
                 photo_update = {
                     "scene_type": analysis.get("scene_type"),
                     "quality_score": quality_int,
@@ -191,13 +190,54 @@ async def run_pipeline(
                     "height": int(analysis.get("height", 0)) or None,
                 }
 
-                if analysis.get("is_raw") and analysis.get("web_preview_bytes"):
-                    # Upload web preview JPEG so the "Original" panel can display it
-                    preview_key = photo["original_key"].rsplit(".", 1)[0] + "_preview.jpg"
-                    uploaded = supabase.storage_upload(bucket, preview_key, analysis["web_preview_bytes"])
-                    if uploaded:
-                        photo_update["web_key"] = preview_key
-                        logger.info(f"Uploaded RAW web preview: {preview_key}")
+                # ── RAW file handling: convert to JPEG once, use everywhere ──
+                if analysis.get("is_raw"):
+                    logger.info(f"RAW file detected: {filename} — converting to JPEG")
+                    # Decode full resolution (this is already done inside analyse_image
+                    # but we need the full BGR array for JPEG conversion)
+                    full_bgr = _decode_image_bytes(img_bytes, filename)
+                    if full_bgr is not None:
+                        keys = get_output_keys(photographer_id, gallery_id, filename)
+
+                        # Full-res JPEG (working copy for all subsequent phases)
+                        _, full_buf = cv2.imencode(".jpg", full_bgr, [cv2.IMWRITE_JPEG_QUALITY, 95])
+                        full_jpeg = full_buf.tobytes()
+                        supabase.storage_upload(bucket, keys["edited_key"], full_jpeg)
+                        photo_update["edited_key"] = keys["edited_key"]
+                        ps["edited_key"] = keys["edited_key"]
+                        logger.info(f"RAW→JPEG full-res: {keys['edited_key']} ({len(full_jpeg)/1024/1024:.1f}MB)")
+
+                        # Web preview (2048px max)
+                        h, w = full_bgr.shape[:2]
+                        if max(h, w) > 2048:
+                            scale = 2048 / max(h, w)
+                            web_img = cv2.resize(full_bgr, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+                        else:
+                            web_img = full_bgr
+                        _, web_buf = cv2.imencode(".jpg", web_img, [cv2.IMWRITE_JPEG_QUALITY, 92])
+                        web_jpeg = web_buf.tobytes()
+                        supabase.storage_upload(bucket, keys["web_key"], web_jpeg)
+                        photo_update["web_key"] = keys["web_key"]
+
+                        # Thumbnail (400px max)
+                        if max(h, w) > 400:
+                            scale_t = 400 / max(h, w)
+                            thumb_img = cv2.resize(full_bgr, (int(w * scale_t), int(h * scale_t)), interpolation=cv2.INTER_AREA)
+                        else:
+                            thumb_img = full_bgr
+                        _, thumb_buf = cv2.imencode(".jpg", thumb_img, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                        supabase.storage_upload(bucket, keys["thumb_key"], thumb_buf.tobytes())
+                        photo_update["thumb_key"] = keys["thumb_key"]
+
+                        logger.info(f"RAW previews uploaded: web={keys['web_key']}, thumb={keys['thumb_key']}")
+
+                        # Cache the full BGR for later phases (avoid re-download + re-decode)
+                        photo["_processed_img"] = full_bgr
+                    else:
+                        logger.error(f"Failed to decode RAW for JPEG conversion: {filename}")
+
+                # Update DB
+                supabase.update("photos", photo["id"], photo_update)
 
                 # Update DB
                 supabase.update("photos", photo["id"], photo_update)
@@ -474,13 +514,18 @@ async def run_pipeline(
 
         # Increment images edited counter for billing tracking
         try:
+            from app.config import get_supabase as _get_sb
+            _sb = _get_sb()
             import httpx as _httpx
-            _s = supabase
-            url = f"{_s.base_url}/rest/v1/rpc/increment_images_edited"
-            _httpx.post(url, headers=_s.headers, json={
+            url = f"{_sb.base_url}/rest/v1/rpc/increment_images_edited"
+            resp = _httpx.post(url, headers=_sb.headers, json={
                 "photographer_uuid": photographer_id,
                 "count": total_photos,
             }, timeout=10)
+            if resp.status_code == 200:
+                logger.info(f"Incremented images_edited_count by {total_photos}")
+            else:
+                logger.warning(f"Failed to increment counter: {resp.status_code} {resp.text}")
         except Exception as e:
             logger.warning(f"Failed to increment images edited counter: {e}")
 

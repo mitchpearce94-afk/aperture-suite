@@ -62,14 +62,17 @@ def detect_horizon_angle(img_array: np.ndarray) -> float:
     return weighted_angle
 
 
-def straighten_image(img_array: np.ndarray, angle: float, max_angle: float = 5.0) -> np.ndarray:
+def straighten_image(img_array: np.ndarray, angle: float, max_angle: float = 3.0) -> np.ndarray:
     """
     Rotate image to correct horizon tilt.
 
-    Only corrects if angle is within max_angle degrees (avoids over-rotating
-    intentionally tilted shots).
+    Only corrects if angle is between min_angle and max_angle degrees.
+    Conservative thresholds to avoid over-rotating intentionally tilted shots
+    or false-positive horizon detections from landscape features.
     """
-    if abs(angle) < 0.3:  # Already straight enough
+    min_angle = 1.0  # Don't bother correcting tiny tilts — likely noise
+
+    if abs(angle) < min_angle:
         return img_array
 
     if abs(angle) > max_angle:
@@ -89,15 +92,37 @@ def straighten_image(img_array: np.ndarray, angle: float, max_angle: float = 5.0
     M[0, 2] += (new_w - w) / 2
     M[1, 2] += (new_h - h) / 2
 
-    rotated = cv2.warpAffine(img_array, M, (new_w, new_h), borderMode=cv2.BORDER_REPLICATE)
+    rotated = cv2.warpAffine(img_array, M, (new_w, new_h), borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0))
 
-    # Crop to remove border artifacts — trim to original aspect ratio
-    crop_margin_x = (new_w - w) // 2
-    crop_margin_y = (new_h - h) // 2
-    if crop_margin_x > 0 or crop_margin_y > 0:
-        rotated = rotated[crop_margin_y:new_h-crop_margin_y, crop_margin_x:new_w-crop_margin_x]
+    # Crop to the largest inscribed rectangle (no black borders)
+    # For small angles, the inscribed rect is very close to the original size
+    import math
+    rad = abs(math.radians(angle))
+    cos_a = math.cos(rad)
+    sin_a = math.sin(rad)
 
-    return rotated
+    # Width and height of the largest axis-aligned rectangle inscribed in the rotated image
+    if w <= 0 or h <= 0:
+        return rotated
+    wr = w * cos_a - h * sin_a
+    hr = h * cos_a - w * sin_a
+
+    # If the inscribed rect is invalid (very large angles), just center crop
+    if wr <= 0 or hr <= 0:
+        crop_margin_x = (new_w - w) // 2
+        crop_margin_y = (new_h - h) // 2
+        if crop_margin_x > 0 or crop_margin_y > 0:
+            rotated = rotated[crop_margin_y:new_h - crop_margin_y, crop_margin_x:new_w - crop_margin_x]
+        return rotated
+
+    # Center crop to inscribed rectangle
+    cx, cy = new_w // 2, new_h // 2
+    x1 = max(0, int(cx - wr / 2))
+    y1 = max(0, int(cy - hr / 2))
+    x2 = min(new_w, int(cx + wr / 2))
+    y2 = min(new_h, int(cy + hr / 2))
+
+    return rotated[y1:y2, x1:x2].copy()
 
 
 # ── Crop Optimisation ────────────────────────────────────────
@@ -229,9 +254,9 @@ def fix_composition(img_array: np.ndarray, face_boxes: list[dict] = None, auto_c
     angle = detect_horizon_angle(img_array)
     metadata["horizon_angle"] = round(angle, 2)
 
-    if abs(angle) > 0.3:
+    if abs(angle) >= 1.0:
         img_array = straighten_image(img_array, angle)
-        metadata["straightened"] = True
+        metadata["straightened"] = abs(angle) >= 1.0 and abs(angle) <= 3.0
 
     # 2. Crop optimisation
     if auto_crop:
@@ -247,33 +272,3 @@ def fix_composition(img_array: np.ndarray, face_boxes: list[dict] = None, auto_c
             metadata["crop_rect"] = [x, y, cw, ch]
 
     return img_array, metadata
-
-
-# ── Orchestrator wrapper ────────────────────────────────────────
-async def run_phase4(photo: dict, supabase_client) -> dict:
-    """Download edited image, apply composition fixes, re-upload."""
-    edited_key = photo.get("edited_key") or photo.get("original_key", "").replace("originals/", "edited/")
-    if not edited_key:
-        return {"error": "No edited_key"}
-
-    image_bytes = supabase_client.storage_download("photos", edited_key)
-    if not image_bytes:
-        return {"error": f"Failed to download {edited_key}"}
-
-    import cv2, numpy as np
-    nparr = np.frombuffer(image_bytes, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    if img is None:
-        return {"error": "Failed to decode image"}
-
-    face_boxes = photo.get("face_data") or []
-    result_img, comp_info = fix_composition(img, face_boxes=face_boxes, auto_crop=True)
-
-    # Re-encode and upload
-    _, buf = cv2.imencode(".jpg", result_img, [cv2.IMWRITE_JPEG_QUALITY, 92])
-    supabase_client.storage_upload("photos", edited_key, buf.tobytes())
-    supabase_client.update("photos", photo["id"], {
-        "ai_edits": {**(photo.get("ai_edits") or {}), "composition": comp_info},
-    })
-
-    return {"status": "success"}
