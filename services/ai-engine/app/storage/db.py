@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 def update_processing_job(job_id: str, **fields):
     try:
         sb = get_supabase()
-        sb.update("processing_jobs", fields, {"id": f"eq.{job_id}"})
+        sb.update("processing_jobs", job_id, fields)
     except Exception as e:
         log.error(f"Failed to update processing_job {job_id}: {e}")
 
@@ -50,7 +50,7 @@ def fail_job(job_id: str, error: str):
 def get_gallery_photos(gallery_id: str) -> list[dict]:
     try:
         sb = get_supabase()
-        return sb.select("photos", "*", {"gallery_id": f"eq.{gallery_id}"}, order="sort_order.asc")
+        return sb.select("photos", {"gallery_id": gallery_id}, order="sort_order.asc")
     except Exception as e:
         log.error(f"Failed to fetch photos for gallery {gallery_id}: {e}")
         return []
@@ -59,7 +59,7 @@ def get_gallery_photos(gallery_id: str) -> list[dict]:
 def update_photo(photo_id: str, **fields):
     try:
         sb = get_supabase()
-        sb.update("photos", fields, {"id": f"eq.{photo_id}"})
+        sb.update("photos", photo_id, fields)
     except Exception as e:
         log.error(f"Failed to update photo {photo_id}: {e}")
 
@@ -77,7 +77,7 @@ def bulk_update_photos(photo_ids: list[str], **fields):
 def update_job_status(job_id: str, status: str):
     try:
         sb = get_supabase()
-        sb.update("jobs", {"status": status}, {"id": f"eq.{job_id}"})
+        sb.update("jobs", job_id, {"status": status})
     except Exception as e:
         log.error(f"Failed to update job {job_id} status: {e}")
 
@@ -87,7 +87,7 @@ def update_job_status(job_id: str, status: str):
 def get_gallery(gallery_id: str) -> Optional[dict]:
     try:
         sb = get_supabase()
-        return sb.select_single("galleries", "*, job:jobs(id, status)", {"id": f"eq.{gallery_id}"})
+        return sb.select_single("galleries", {"id": gallery_id}, columns="*, job:jobs(id, status)")
     except Exception as e:
         log.error(f"Failed to fetch gallery {gallery_id}: {e}")
         return None
@@ -96,7 +96,7 @@ def get_gallery(gallery_id: str) -> Optional[dict]:
 def update_gallery(gallery_id: str, **fields):
     try:
         sb = get_supabase()
-        sb.update("galleries", fields, {"id": f"eq.{gallery_id}"})
+        sb.update("galleries", gallery_id, fields)
     except Exception as e:
         log.error(f"Failed to update gallery {gallery_id}: {e}")
 
@@ -106,7 +106,7 @@ def update_gallery(gallery_id: str, **fields):
 def get_style_profile(profile_id: str) -> Optional[dict]:
     try:
         sb = get_supabase()
-        return sb.select_single("style_profiles", "*", {"id": f"eq.{profile_id}"})
+        return sb.select_single("style_profiles", {"id": profile_id})
     except Exception as e:
         log.error(f"Failed to fetch style profile {profile_id}: {e}")
         return None
@@ -115,17 +115,12 @@ def get_style_profile(profile_id: str) -> Optional[dict]:
 def get_photographer_default_style(photographer_id: str) -> Optional[dict]:
     """
     Get the first 'ready' style profile for a photographer.
-    Used when no specific style_profile_id is passed to the pipeline —
-    ensures each photographer gets THEIR style, not a random one.
     """
     try:
         sb = get_supabase()
         profiles = sb.select(
-            "style_profiles", "*",
-            {
-                "photographer_id": f"eq.{photographer_id}",
-                "status": "eq.ready",
-            },
+            "style_profiles",
+            {"photographer_id": photographer_id, "status": "ready"},
             order="created_at.desc",
         )
         return profiles[0] if profiles else None
@@ -148,6 +143,6 @@ def validate_style_profile_ownership(profile_id: str, photographer_id: str) -> b
 def update_style_profile(profile_id: str, **fields):
     try:
         sb = get_supabase()
-        sb.update("style_profiles", fields, {"id": f"eq.{profile_id}"})
+        sb.update("style_profiles", profile_id, fields)
     except Exception as e:
         log.error(f"Failed to update style profile {profile_id}: {e}")

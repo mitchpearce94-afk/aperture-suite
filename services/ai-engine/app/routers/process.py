@@ -66,7 +66,7 @@ async def process_gallery(request: ProcessRequest):
     # Check for existing processing job for this gallery — reuse it
     existing_jobs = sb.select(
         "processing_jobs",
-        {"gallery_id": f"eq.{request.gallery_id}"},
+        {"gallery_id": request.gallery_id},
         order="created_at.desc",
     )
 
@@ -147,7 +147,7 @@ async def process_single_photo(photo_id: str, prompt: Optional[str] = None):
 async def get_processing_status(job_id: str):
     try:
         sb = get_supabase()
-        job = sb.select_single("processing_jobs", {"id": f"eq.{job_id}"})
+        job = sb.select_single("processing_jobs", {"id": job_id})
         if not job:
             return {"error": "Job not found"}
 
