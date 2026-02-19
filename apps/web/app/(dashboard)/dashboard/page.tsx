@@ -14,7 +14,7 @@ import Link from 'next/link';
 export default function DashboardPage() {
   const [stats, setStats] = useState({
     totalClients: 0, totalLeads: 0, activeLeads: 0, openJobs: 0,
-    totalRevenue: 0, upcomingJobs: [] as any[],
+    totalRevenue: 0, upcomingJobs: [] as any[], imagesEditedThisMonth: 0,
   });
   const [recentLeads, setRecentLeads] = useState<any[]>([]);
   const [upcomingJobs, setUpcomingJobs] = useState<any[]>([]);
@@ -58,7 +58,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <StatCard title="Revenue" value={formatCurrency(stats.totalRevenue)} icon={DollarSign} />
         <StatCard title="Active Leads" value={stats.activeLeads} icon={Inbox} />
         <StatCard title="Open Jobs" value={stats.openJobs} icon={Briefcase} />
