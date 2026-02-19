@@ -19,6 +19,78 @@ from datetime import datetime
 
 log = logging.getLogger(__name__)
 
+# RAW file extensions supported by rawpy/libraw
+RAW_EXTENSIONS = {
+    '.dng', '.cr2', '.cr3', '.nef', '.nrw', '.arw', '.srf', '.sr2',
+    '.orf', '.rw2', '.pef', '.raf', '.raw', '.3fr', '.mef', '.mrw',
+    '.x3f', '.srw', '.erf', '.kdc', '.dcr', '.rwl', '.iiq',
+}
+
+
+def is_raw_file(filename: str) -> bool:
+    """Check if a filename has a RAW extension."""
+    import os
+    ext = os.path.splitext(filename.lower())[1]
+    return ext in RAW_EXTENSIONS
+
+
+def decode_raw(image_bytes: bytes) -> Optional[np.ndarray]:
+    """
+    Decode a RAW image file to full-resolution BGR numpy array using rawpy.
+
+    Returns None if decoding fails.
+    """
+    try:
+        import rawpy
+        import tempfile
+        import os
+
+        # rawpy needs a file path — write to temp file
+        with tempfile.NamedTemporaryFile(suffix='.dng', delete=False) as tmp:
+            tmp.write(image_bytes)
+            tmp_path = tmp.name
+
+        try:
+            with rawpy.imread(tmp_path) as raw:
+                # Process with reasonable defaults for photography
+                rgb = raw.postprocess(
+                    use_camera_wb=True,       # Use camera white balance
+                    half_size=False,           # Full resolution
+                    no_auto_bright=False,      # Auto brightness
+                    output_bps=8,              # 8-bit output
+                    bright=1.0,                # Normal brightness
+                    demosaic_algorithm=rawpy.DemosaicAlgorithm.AHD,
+                )
+                # Convert RGB to BGR for OpenCV
+                bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+                log.info(f"RAW decoded: {bgr.shape[1]}x{bgr.shape[0]}")
+                return bgr
+        finally:
+            os.unlink(tmp_path)
+
+    except ImportError:
+        log.error("rawpy not installed — cannot decode RAW files")
+        return None
+    except Exception as e:
+        log.error(f"RAW decode failed: {e}")
+        return None
+
+
+def generate_web_preview(img_array: np.ndarray, max_dimension: int = 2048, quality: int = 92) -> bytes:
+    """
+    Generate a JPEG preview from a BGR numpy array.
+    Used to create web-viewable previews for RAW files.
+    """
+    h, w = img_array.shape[:2]
+    if max(h, w) > max_dimension:
+        scale = max_dimension / max(h, w)
+        img_array = cv2.resize(img_array, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+
+    success, buffer = cv2.imencode(".jpg", img_array, [cv2.IMWRITE_JPEG_QUALITY, quality])
+    if not success:
+        raise ValueError("Failed to encode JPEG preview")
+    return buffer.tobytes()
+
 
 # ── EXIF Extraction ──────────────────────────────────────────
 
@@ -322,9 +394,13 @@ def group_duplicates(photos: list[dict], threshold: int = 10) -> dict[str, list[
 
 # ── Main Phase 0 Entry Point ─────────────────────────────────
 
-def analyse_image(image_bytes: bytes) -> dict:
+def analyse_image(image_bytes: bytes, filename: str = "") -> dict:
     """
     Run full Phase 0 analysis on a single image.
+
+    Args:
+        image_bytes: Raw file bytes
+        filename: Original filename (used to detect RAW format)
 
     Returns:
         {
@@ -337,40 +413,46 @@ def analyse_image(image_bytes: bytes) -> dict:
             "phash": str,
             "width": int,
             "height": int,
+            "is_raw": bool,
+            "web_preview_bytes": bytes | None,  # JPEG preview for RAW files
         }
     """
+    is_raw = is_raw_file(filename) if filename else False
+    web_preview_bytes = None
+
     # Decode image
+    img = None
     nparr = np.frombuffer(image_bytes, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    if not is_raw:
+        # Try standard decode first (JPEG, PNG, TIFF, etc.)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
     if img is None:
-        # Try with PIL for RAW formats
-        try:
-            pil_img = Image.open(io.BytesIO(image_bytes))
-            pil_img = pil_img.convert("RGB")
-            img = np.array(pil_img)[:, :, ::-1]  # RGB → BGR for OpenCV
-        except Exception:
-            pass
-
-    if img is None:
-        # Try rawpy for camera RAW (DNG, CR2, CR3, NEF, ARW, etc)
-        try:
-            import rawpy
-            import tempfile, os
-            with tempfile.NamedTemporaryFile(suffix='.dng', delete=False) as f:
-                f.write(image_bytes)
-                tmp_path = f.name
+        # Either it's a known RAW or cv2 couldn't decode it — try rawpy
+        img = decode_raw(image_bytes)
+        if img is not None:
+            is_raw = True
+        else:
+            # Last resort: PIL (may only get thumbnail for some formats)
             try:
-                with rawpy.imread(tmp_path) as raw:
-                    rgb = raw.postprocess(use_camera_wb=True, no_auto_bright=False, output_bps=8)
-                    img = rgb[:, :, ::-1]  # RGB → BGR
-            finally:
-                os.unlink(tmp_path)
-        except Exception:
-            log.error("Failed to decode image (tried cv2, PIL, rawpy)")
-            return {"error": "Failed to decode image"}
+                pil_img = Image.open(io.BytesIO(image_bytes))
+                pil_img = pil_img.convert("RGB")
+                img = np.array(pil_img)[:, :, ::-1]  # RGB → BGR for OpenCV
+                log.warning(f"Fell back to PIL for {filename} — image may be low resolution ({img.shape[1]}x{img.shape[0]})")
+            except Exception:
+                log.error(f"Failed to decode image: {filename}")
+                return {"error": "Failed to decode image"}
 
     h, w = img.shape[:2]
+
+    # For RAW files, generate a web-viewable JPEG preview
+    if is_raw:
+        try:
+            web_preview_bytes = generate_web_preview(img, max_dimension=2048, quality=92)
+            log.info(f"Generated web preview for RAW {filename}: {len(web_preview_bytes)} bytes")
+        except Exception as e:
+            log.error(f"Failed to generate web preview for {filename}: {e}")
 
     # Resize for analysis to prevent OOM on memory-constrained containers
     # Analysis (face detection, scene, quality) doesn't need full resolution
@@ -405,6 +487,8 @@ def analyse_image(image_bytes: bytes) -> dict:
         "width": w,   # Original dimensions
         "height": h,
         "characteristics": characteristics,
+        "is_raw": is_raw,
+        "web_preview_bytes": web_preview_bytes,
     }
 
 
@@ -483,17 +567,3 @@ def _compute_image_characteristics(img: np.ndarray) -> dict:
         "l_p2": round(p2, 1),
         "l_p98": round(p98, 1),
     }
-
-
-# ── Orchestrator wrapper ────────────────────────────────────────
-async def run_phase0(photo: dict, supabase_client) -> dict:
-    """Download photo from storage, run analysis, return results."""
-    original_key = photo.get("original_key")
-    if not original_key:
-        return {"error": "No original_key"}
-
-    image_bytes = supabase_client.storage_download("photos", original_key)
-    if not image_bytes:
-        return {"error": f"Failed to download {original_key}"}
-
-    return analyse_image(image_bytes)

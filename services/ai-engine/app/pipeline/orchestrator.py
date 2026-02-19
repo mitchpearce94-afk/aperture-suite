@@ -16,10 +16,12 @@ import asyncio
 import time
 import logging
 import traceback
+import numpy as np
+import cv2
 from typing import Optional
 
 from app.config import settings, supabase
-from app.pipeline.phase0_analysis import analyse_image
+from app.pipeline.phase0_analysis import analyse_image, decode_raw, is_raw_file
 from app.pipeline.phase4_composition import fix_composition
 from app.pipeline.phase5_output import generate_outputs, get_output_keys
 from app.modal.client import ModalClient
@@ -29,6 +31,25 @@ logger = logging.getLogger("apelier.orchestrator")
 PHASES = ["analysis", "style", "retouch", "cleanup", "composition", "output"]
 
 PIPELINE_VERSION = "2.0"
+
+
+def _decode_image_bytes(img_bytes: bytes, filename: str = "") -> Optional[np.ndarray]:
+    """Decode image bytes to BGR numpy array, handling both standard and RAW formats."""
+    import cv2
+    import numpy as np
+
+    # Try standard decode first (JPEG, PNG, TIFF)
+    img = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
+    if img is not None:
+        return img
+
+    # If standard decode fails, try RAW decode
+    img = decode_raw(img_bytes)
+    if img is not None:
+        return img
+
+    logger.warning(f"Could not decode image: {filename}")
+    return None
 
 
 async def run_pipeline(
@@ -125,7 +146,7 @@ async def run_pipeline(
                     logger.warning(f"Could not download {photo['original_key']}, skipping")
                     continue
 
-                analysis = analyse_image(img_bytes)
+                analysis = analyse_image(img_bytes, filename=photo.get("filename", ""))
 
                 if analysis.get("error"):
                     logger.warning(f"Phase 0 analysis error for {photo['id']}: {analysis['error']}")
@@ -160,15 +181,26 @@ async def run_pipeline(
                     else:
                         exif_clean[k] = str(v)
 
-                # Update DB
-                supabase.update("photos", photo["id"], {
+                # For RAW files: upload a web-viewable JPEG preview so the frontend can display it
+                photo_update = {
                     "scene_type": analysis.get("scene_type"),
                     "quality_score": quality_int,
                     "face_data": face_data,
                     "exif_data": exif_clean,
                     "width": int(analysis.get("width", 0)) or None,
                     "height": int(analysis.get("height", 0)) or None,
-                })
+                }
+
+                if analysis.get("is_raw") and analysis.get("web_preview_bytes"):
+                    # Upload web preview JPEG so the "Original" panel can display it
+                    preview_key = photo["original_key"].rsplit(".", 1)[0] + "_preview.jpg"
+                    uploaded = supabase.storage_upload(bucket, preview_key, analysis["web_preview_bytes"])
+                    if uploaded:
+                        photo_update["web_key"] = preview_key
+                        logger.info(f"Uploaded RAW web preview: {preview_key}")
+
+                # Update DB
+                supabase.update("photos", photo["id"], photo_update)
 
                 # Update local state
                 ps = photo_state[photo["id"]]
@@ -317,9 +349,7 @@ async def run_pipeline(
                     await _update_phase(processing_job_id, "composition", i + 1)
                     continue
 
-                import cv2
-                import numpy as np
-                img_array = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
+                img_array = _decode_image_bytes(img_bytes, photo.get("filename", ""))
                 if img_array is None:
                     logger.warning(f"Could not decode {source_key}, skipping composition")
                     await _update_phase(processing_job_id, "composition", i + 1)
@@ -375,8 +405,7 @@ async def run_pipeline(
                     source_key = ps["edited_key"] or photo["original_key"]
                     img_bytes = supabase.storage_download(bucket, source_key)
                     if img_bytes:
-                        import cv2, numpy as np
-                        img_array = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
+                        img_array = _decode_image_bytes(img_bytes, photo.get("filename", ""))
 
                 if img_array is None:
                     logger.warning(f"No image data for {photo['id']}, skipping output generation")

@@ -105,9 +105,13 @@ function PhotoImage({ photo, size = 'thumb', className = '' }: {
   size?: 'thumb' | 'web' | 'edited' | 'original';
   className?: string;
 }) {
+  // For RAW files, browsers can't display the original — use web preview instead
+  const isRaw = photo.filename?.match(/\.(dng|cr2|cr3|nef|nrw|arw|srf|sr2|orf|rw2|pef|raf|raw|3fr|mrw|x3f|srw|erf|kdc|dcr|iiq)$/i);
+
   const url = size === 'thumb' ? (photo.thumb_url || photo.web_url)
     : size === 'web' ? (photo.web_url || photo.edited_url || photo.thumb_url)
     : size === 'edited' ? (photo.edited_url || photo.web_url)
+    : isRaw ? (photo.web_url || photo.edited_url || photo.thumb_url)
     : (photo.original_url || photo.web_url);
 
   if (!url) {
