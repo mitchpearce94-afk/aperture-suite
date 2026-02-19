@@ -7,7 +7,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { getDashboardStats, getLeads, getJobs, getGalleries } from '@/lib/queries';
 import {
   DollarSign, Inbox, Briefcase, Calendar, ImageIcon, Wand2,
-  AlertCircle, ArrowRight, Users, ImageIcon,
+  AlertCircle, ArrowRight, Users,
 } from 'lucide-react';
 import Link from 'next/link';
 
