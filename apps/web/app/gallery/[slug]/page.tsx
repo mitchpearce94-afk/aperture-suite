@@ -310,7 +310,8 @@ export default function PublicGalleryPage() {
     setLightboxPhoto(displayPhotos[next]);
   }, [lightboxIndex, displayPhotos]);
 
-  const coverPhoto = gallery?.cover_photo_url || (photos.length > 0 ? ((photos[0] as any).web_url || (photos[0] as any).edited_url || (photos[0] as any).thumb_url) : null);
+  // Priority: explicit cover > first photo web (2048px) > thumb (400px — avoid, will be pixelated on hero)
+  const coverPhoto = gallery?.cover_photo_url || (photos.length > 0 ? ((photos[0] as any).web_url || (photos[0] as any).thumb_url) : null);
 
   // ─── Group photos by section for display ──────────────────────────────────
   const photoGroups: { section: string; photos: Photo[] }[] = [];
