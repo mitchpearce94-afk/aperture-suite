@@ -158,3 +158,37 @@ def get_supabase() -> SupabaseClient:
     if _client is None:
         _client = SupabaseClient()
     return _client
+
+
+# ── Lazy module-level aliases ──
+# Allow `from app.config import settings, supabase` to work everywhere.
+# These are lazy so the module can be imported without env vars being set yet.
+
+class _LazySettings:
+    """Proxy that calls get_settings() on first attribute access."""
+    _instance: Optional[Settings] = None
+
+    def _load(self):
+        if self._instance is None:
+            self._instance = get_settings()
+        return self._instance
+
+    def __getattr__(self, name: str):
+        return getattr(self._load(), name)
+
+
+class _LazySupabase:
+    """Proxy that calls get_supabase() on first attribute access."""
+    _instance: Optional[SupabaseClient] = None
+
+    def _load(self):
+        if self._instance is None:
+            self._instance = get_supabase()
+        return self._instance
+
+    def __getattr__(self, name: str):
+        return getattr(self._load(), name)
+
+
+settings = _LazySettings()
+supabase = _LazySupabase()
