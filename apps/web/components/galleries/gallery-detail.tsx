@@ -103,12 +103,33 @@ export function GalleryDetail({ gallery: initialGallery, onBack, onUpdate }: Gal
   const [galleryPassword, setGalleryPassword] = useState('');
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordSaved, setPasswordSaved] = useState(false);
+  const [passwordSet, setPasswordSet] = useState(false);
+  const [passwordChecking, setPasswordChecking] = useState(false);
 
   const clientName = gallery.client
     ? `${gallery.client.first_name} ${gallery.client.last_name || ''}`.trim()
     : 'Unknown Client';
 
   const galleryUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/gallery/${gallery.slug || gallery.id}`;
+
+  // Check if password is already set for this gallery
+  useEffect(() => {
+    async function checkPassword() {
+      if (gallery.access_type !== 'password' && editAccessType !== 'password') return;
+      setPasswordChecking(true);
+      try {
+        const res = await fetch('/api/gallery-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'check', gallery_id: gallery.id }),
+        });
+        const data = await res.json();
+        setPasswordSet(!!data.has_password);
+      } catch {}
+      setPasswordChecking(false);
+    }
+    checkPassword();
+  }, [gallery.id, gallery.access_type, editAccessType]);
 
   useEffect(() => {
     async function loadPhotos() {
@@ -174,9 +195,10 @@ export function GalleryDetail({ gallery: initialGallery, onBack, onUpdate }: Gal
   ];
 
   const handleDeliver = async () => {
-    // Check password requirement
-    if (gallery.access_type === 'password' && !(gallery as any).password) {
-      alert('This gallery requires a password before delivery. Please set a password in the gallery settings.');
+    // Check password requirement — must have a password hash set in DB
+    if (editAccessType === 'password' && !passwordSet) {
+      setShowSettings(true); // Open settings panel so they can see the password field
+      alert('Please set a gallery password before delivering. The password field is in Gallery Settings below.');
       return;
     }
 
@@ -453,14 +475,25 @@ export function GalleryDetail({ gallery: initialGallery, onBack, onUpdate }: Gal
           {/* Password (when access type is password) */}
           {editAccessType === 'password' && (
             <div>
-              <label className="text-[11px] text-slate-400 block mb-1.5">Gallery Password</label>
+              <label className="text-[11px] text-slate-400 block mb-1.5">
+                Gallery Password
+                {passwordChecking ? (
+                  <span className="ml-2 text-slate-600">checking...</span>
+                ) : passwordSet ? (
+                  <span className="ml-2 text-emerald-400">✓ Password set</span>
+                ) : (
+                  <span className="ml-2 text-red-400">✗ Required before delivery</span>
+                )}
+              </label>
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={galleryPassword}
                   onChange={(e) => { setGalleryPassword(e.target.value); setPasswordSaved(false); }}
-                  placeholder="Set a password for this gallery"
-                  className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+                  placeholder={passwordSet ? 'Enter new password to change' : 'Set a password for this gallery'}
+                  className={`flex-1 px-3 py-1.5 text-xs rounded-lg bg-white/[0.04] border text-white placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-amber-500/50 ${
+                    !passwordSet && !galleryPassword.trim() ? 'border-red-500/30' : 'border-white/[0.08]'
+                  }`}
                 />
                 <Button
                   size="sm"
@@ -477,6 +510,8 @@ export function GalleryDetail({ gallery: initialGallery, onBack, onUpdate }: Gal
                       const data = await res.json();
                       if (data.success) {
                         setPasswordSaved(true);
+                        setPasswordSet(true);
+                        setGalleryPassword('');
                         setTimeout(() => setPasswordSaved(false), 3000);
                       }
                     } catch (err) {
