@@ -1,18 +1,18 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { createClient as createSupabaseClient } from '@/lib/supabase/client';
 import type { Photo } from '@/lib/types';
 import {
   Camera, Heart, Download, Lock, X, ChevronLeft, ChevronRight,
-  Grid3X3, LayoutGrid, Share2, ShoppingBag, ChevronDown, Check,
+  Grid3X3, LayoutGrid, Share2, ShoppingBag, ChevronDown, Check, ArrowDown,
 } from 'lucide-react';
 
 type GalleryData = {
   id: string; photographer_id: string; title: string; description?: string;
   slug: string; access_type: string; status: string; view_count: number;
-  photo_count: number; expires_at?: string;
+  photo_count: number; expires_at?: string; cover_photo_url?: string;
   download_permissions: { allow_full_res: boolean; allow_web: boolean; allow_favorites_only: boolean };
   client?: { first_name: string; last_name: string } | null;
 };
@@ -54,7 +54,7 @@ function PasswordGate({ galleryId, onUnlock, brandColor, businessName }: {
           </div>
           <p className="text-[11px] font-medium uppercase tracking-[0.15em] text-[#B5A999] mb-2">{businessName}</p>
           <h2 className="text-xl font-semibold text-[#1A1A1A]">Protected Gallery</h2>
-          <p className="text-sm text-[#4A453F] mt-2">Enter the password your photographer provided to view your photos.</p>
+          <p className="text-sm text-[#4A453F] mt-2">Enter the password to view your photos.</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="relative">
@@ -86,89 +86,127 @@ function Lightbox({ photo, photos, onClose, onPrev, onNext, onToggleFav, canDown
   const idx = photos.findIndex(p => p.id === photo.id);
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); if (e.key === 'ArrowLeft') onPrev(); if (e.key === 'ArrowRight') onNext(); };
-    window.addEventListener('keydown', h);
-    return () => window.removeEventListener('keydown', h);
+    window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h);
   }, [onClose, onPrev, onNext]);
-
   return (
-    <div className="fixed inset-0 z-50 bg-[#0E0E10] flex flex-col">
-      <div className="flex items-center justify-between px-4 sm:px-6 py-3 bg-gradient-to-b from-black/60 to-transparent absolute top-0 left-0 right-0 z-10">
-        <span className="text-sm text-white/50 tabular-nums font-medium">{idx + 1} / {photos.length}</span>
-        <div className="flex items-center gap-0.5">
-          <button onClick={() => onToggleFav(photo.id, !photo.is_favorite)} className="p-2.5 rounded-xl hover:bg-white/10 transition-colors" title="Favourite">
-            <Heart className={`w-5 h-5 transition-colors ${photo.is_favorite ? 'text-pink-400 fill-pink-400' : 'text-white/40 hover:text-white/70'}`} />
+    <div className="fixed inset-0 z-50 bg-black/95 flex flex-col" onClick={onClose}>
+      {/* Top bar — fade gradient */}
+      <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 sm:px-8 py-4" onClick={e => e.stopPropagation()}>
+        <span className="text-[13px] text-white/40 tabular-nums">{idx + 1} / {photos.length}</span>
+        <div className="flex items-center gap-1">
+          <button onClick={() => onToggleFav(photo.id, !photo.is_favorite)} className="p-2.5 rounded-full hover:bg-white/10 transition-colors">
+            <Heart className={`w-[18px] h-[18px] ${photo.is_favorite ? 'text-pink-400 fill-pink-400' : 'text-white/30 hover:text-white/60'}`} />
           </button>
           {canDownload && (
             <button onClick={async () => {
-              try {
-                const res = await fetch(`/api/gallery-photos?action=download&gallery_id=${photo.gallery_id}&photo_id=${photo.id}&resolution=full`);
-                const data = await res.json();
+              try { const res = await fetch(`/api/gallery-photos?action=download&gallery_id=${photo.gallery_id}&photo_id=${photo.id}&resolution=full`); const data = await res.json();
                 if (data.url) { const a = document.createElement('a'); a.href = data.url; a.download = photo.filename || 'photo.jpg'; document.body.appendChild(a); a.click(); document.body.removeChild(a); }
-              } catch {}
-            }} className="p-2.5 rounded-xl hover:bg-white/10 transition-colors text-white/40 hover:text-white/70" title="Download">
-              <Download className="w-5 h-5" />
-            </button>
+              } catch {} }} className="p-2.5 rounded-full hover:bg-white/10 transition-colors text-white/30 hover:text-white/60"><Download className="w-[18px] h-[18px]" /></button>
           )}
-          <button className="p-2.5 rounded-xl hover:bg-white/10 transition-colors text-white/40 hover:text-white/70" title="Share"><Share2 className="w-5 h-5" /></button>
-          <div className="w-px h-5 bg-white/10 mx-2" />
-          <button onClick={onClose} className="p-2.5 rounded-xl hover:bg-white/10 text-white/40 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
+          <div className="w-px h-4 bg-white/10 mx-1.5" />
+          <button onClick={onClose} className="p-2.5 rounded-full hover:bg-white/10 text-white/30 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
         </div>
       </div>
-      <div className="flex-1 flex items-center justify-center relative">
-        <button onClick={onPrev} className="absolute left-2 sm:left-6 p-3 text-white/15 hover:text-white/70 transition-colors z-10 group">
-          <div className="p-2 rounded-full group-hover:bg-white/10 transition-colors"><ChevronLeft className="w-7 h-7" /></div>
-        </button>
-        <div className="max-w-[92vw] max-h-[88vh] flex items-center justify-center">
-          {(photo as any).web_url || (photo as any).thumb_url ? (
-            <img src={(photo as any).web_url || (photo as any).thumb_url} alt={photo.filename} className="max-w-full max-h-[88vh] rounded-lg object-contain shadow-2xl" />
-          ) : (
-            <div className="w-[800px] max-w-full aspect-[3/2] bg-[#1A1A1A] rounded-lg flex items-center justify-center"><Camera className="w-12 h-12 text-[#4A453F]" /></div>
-          )}
-        </div>
-        <button onClick={onNext} className="absolute right-2 sm:right-6 p-3 text-white/15 hover:text-white/70 transition-colors z-10 group">
-          <div className="p-2 rounded-full group-hover:bg-white/10 transition-colors"><ChevronRight className="w-7 h-7" /></div>
-        </button>
-      </div>
-      <div className="px-4 py-3 bg-gradient-to-t from-black/60 to-transparent absolute bottom-0 left-0 right-0 flex items-center justify-center gap-4 text-xs text-white/30">
-        {photo.section && <span className="capitalize px-2.5 py-1 rounded-full bg-white/5">{photo.section.replace('-', ' ')}</span>}
-        <span>{photo.filename}</span>
+      {/* Nav arrows */}
+      <button onClick={e => { e.stopPropagation(); onPrev(); }} className="absolute left-3 sm:left-8 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full text-white/10 hover:text-white/60 hover:bg-white/5 transition-all"><ChevronLeft className="w-8 h-8" /></button>
+      <button onClick={e => { e.stopPropagation(); onNext(); }} className="absolute right-3 sm:right-8 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full text-white/10 hover:text-white/60 hover:bg-white/5 transition-all"><ChevronRight className="w-8 h-8" /></button>
+      {/* Image */}
+      <div className="flex-1 flex items-center justify-center px-16 sm:px-24 py-16" onClick={e => e.stopPropagation()}>
+        {(photo as any).web_url || (photo as any).thumb_url ? (
+          <img src={(photo as any).web_url || (photo as any).thumb_url} alt={photo.filename} className="max-w-full max-h-full object-contain" />
+        ) : (
+          <div className="w-[800px] max-w-full aspect-[3/2] bg-[#111] rounded flex items-center justify-center"><Camera className="w-12 h-12 text-[#333]" /></div>
+        )}
       </div>
     </div>
   );
 }
 
-/* ─── Shop Section ─── */
-function ShopSection({ brandColor }: { brandColor: string }) {
-  const products = [
-    { name: 'Fine Art Prints', desc: 'Museum-quality prints on archival paper', price: 'From $29', icon: '\u{1F5BC}\u{FE0F}' },
-    { name: 'Canvas Wrap', desc: 'Gallery-wrapped canvas, ready to hang', price: 'From $89', icon: '\u{1F3A8}' },
-    { name: 'Photo Album', desc: 'Hardcover lay-flat album, 20 pages', price: 'From $199', icon: '\u{1F4D6}' },
-    { name: 'Metal Print', desc: 'Vibrant HD print on brushed aluminium', price: 'From $69', icon: '\u2728' },
-    { name: 'Greeting Cards', desc: 'Pack of 25, folded or flat', price: 'From $49', icon: '\u{1F48C}' },
-    { name: 'Photo Mug', desc: 'Ceramic mug with your favourite photo', price: 'From $24', icon: '\u2615' },
-  ];
+/* ─── Masonry Grid ─── */
+function MasonryGrid({ photos, onPhotoClick, onToggleFav, canDownload, brandColor }: {
+  photos: Photo[]; onPhotoClick: (p: Photo) => void; onToggleFav: (id: string, fav: boolean) => void;
+  canDownload: boolean; brandColor: string;
+}) {
   return (
-    <div className="border-t border-[#F0ECE5] bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
-        <div className="text-center mb-10">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#B5A999] mb-2">Keepsakes</p>
-          <h2 className="text-xl sm:text-2xl font-semibold text-[#1A1A1A]">Print Shop</h2>
-          <p className="text-sm text-[#4A453F] mt-2">Turn your favourite moments into beautiful keepsakes</p>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-5">
-          {products.map(product => (
-            <button key={product.name} className="group text-left rounded-2xl border border-[#F0ECE5] bg-white hover:border-[#E2DDD4] hover:shadow-md transition-all duration-200 overflow-hidden">
-              <div className="aspect-[4/3] bg-gradient-to-br from-[#FAF9F7] to-[#F0ECE5] flex items-center justify-center text-4xl group-hover:scale-[1.02] transition-transform duration-300">{product.icon}</div>
-              <div className="p-3.5 sm:p-4">
-                <h3 className="text-sm font-medium text-[#1A1A1A]">{product.name}</h3>
-                <p className="text-xs text-[#B5A999] mt-0.5 hidden sm:block">{product.desc}</p>
-                <p className="text-xs font-semibold mt-2" style={{ color: brandColor }}>{product.price}</p>
-              </div>
+    <div className="columns-2 sm:columns-3 lg:columns-4 gap-3 sm:gap-4 space-y-3 sm:space-y-4">
+      {photos.map((photo, i) => (
+        <MasonryPhoto key={photo.id} photo={photo} index={i}
+          onClick={() => onPhotoClick(photo)}
+          onToggleFav={onToggleFav} canDownload={canDownload} brandColor={brandColor} />
+      ))}
+    </div>
+  );
+}
+
+function MasonryPhoto({ photo, index, onClick, onToggleFav, canDownload, brandColor }: {
+  photo: Photo; index: number; onClick: () => void;
+  onToggleFav: (id: string, fav: boolean) => void; canDownload: boolean; brandColor: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = ref.current; if (!el) return;
+    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect(); } }, { threshold: 0.1 });
+    obs.observe(el); return () => obs.disconnect();
+  }, []);
+
+  return (
+    <div ref={ref}
+      className={`break-inside-avoid relative group cursor-pointer transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+      style={{ transitionDelay: `${(index % 4) * 80}ms` }}
+      onClick={onClick}
+    >
+      <div className="overflow-hidden rounded-sm">
+        {(photo as any).thumb_url || (photo as any).web_url ? (
+          <img src={(photo as any).web_url || (photo as any).thumb_url} alt={photo.filename}
+            className="w-full block transition-transform duration-700 ease-out group-hover:scale-[1.02]" loading="lazy" />
+        ) : (
+          <div className="w-full aspect-[4/3] bg-[#F0ECE5] flex items-center justify-center">
+            <Camera className="w-5 h-5 text-[#B5A999]" />
+          </div>
+        )}
+        {/* Hover overlay — minimal, from bottom */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          <div className="absolute bottom-0 left-0 right-0 p-3 flex items-center gap-2">
+            <button onClick={(e) => { e.stopPropagation(); onToggleFav(photo.id, !photo.is_favorite); }}
+              className="p-1.5 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white shadow-sm transition-all">
+              <Heart className={`w-3.5 h-3.5 ${photo.is_favorite ? 'text-pink-500 fill-pink-500' : 'text-gray-700'}`} />
             </button>
-          ))}
+            {canDownload && (
+              <button onClick={async (e) => {
+                e.stopPropagation();
+                try { const res = await fetch(`/api/gallery-photos?action=download&gallery_id=${photo.gallery_id}&photo_id=${photo.id}&resolution=full`);
+                  const data = await res.json();
+                  if (data.url) { const a = document.createElement('a'); a.href = data.url; a.download = photo.filename || 'photo.jpg'; document.body.appendChild(a); a.click(); document.body.removeChild(a); }
+                } catch {} }} className="p-1.5 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white shadow-sm transition-all">
+                <Download className="w-3.5 h-3.5 text-gray-700" />
+              </button>
+            )}
+          </div>
         </div>
-        <p className="text-center text-[10px] text-[#B5A999] mt-8">Print ordering coming soon &mdash; powered by Apelier</p>
       </div>
+      {/* Fav badge (visible when not hovering) */}
+      {photo.is_favorite && (
+        <div className="absolute top-2 right-2 group-hover:opacity-0 transition-opacity">
+          <div className="p-1 rounded-full bg-white/80 backdrop-blur-sm shadow-sm">
+            <Heart className="w-3 h-3 text-pink-500 fill-pink-500" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Uniform Grid (toggle option) ─── */
+function UniformGrid({ photos, onPhotoClick, onToggleFav, canDownload, brandColor, gridSize }: {
+  photos: Photo[]; onPhotoClick: (p: Photo) => void; onToggleFav: (id: string, fav: boolean) => void;
+  canDownload: boolean; brandColor: string; gridSize: 'small' | 'large';
+}) {
+  return (
+    <div className={`grid gap-1.5 sm:gap-2 ${gridSize === 'large' ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4' : 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6'}`}>
+      {photos.map((photo, i) => (
+        <MasonryPhoto key={photo.id} photo={photo} index={i} onClick={() => onPhotoClick(photo)} onToggleFav={onToggleFav} canDownload={canDownload} brandColor={brandColor} />
+      ))}
     </div>
   );
 }
@@ -186,13 +224,22 @@ export default function PublicGalleryPage() {
   const [activeSection, setActiveSection] = useState('all');
   const [lightboxPhoto, setLightboxPhoto] = useState<Photo | null>(null);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [layout, setLayout] = useState<'masonry' | 'grid'>('masonry');
   const [gridSize, setGridSize] = useState<'small' | 'large'>('large');
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+  const [headerVisible, setHeaderVisible] = useState(true);
 
   const brandColor = brand?.brand_settings?.primary_color || '#C47D4A';
   const businessName = brand?.business_name || 'Gallery';
 
   useEffect(() => { loadGallery(); }, [slug]);
+
+  // Hide sticky bar when at top
+  useEffect(() => {
+    const h = () => setHeaderVisible(window.scrollY > 400);
+    window.addEventListener('scroll', h, { passive: true });
+    return () => window.removeEventListener('scroll', h);
+  }, []);
 
   async function loadGallery() {
     setLoading(true);
@@ -204,20 +251,12 @@ export default function PublicGalleryPage() {
       const g: GalleryData = { ...gData, client: Array.isArray(gData.client) ? gData.client[0] ?? null : gData.client };
       setGallery(g);
       if (g.access_type !== 'password') { setUnlocked(true); }
-      else {
-        try {
-          const pwRes = await fetch('/api/gallery-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'check', gallery_id: g.id }) });
-          const pwData = await pwRes.json();
-          if (!pwData.has_password) setUnlocked(true);
-        } catch {}
-      }
+      else { try { const pwRes = await fetch('/api/gallery-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'check', gallery_id: g.id }) }); const pwData = await pwRes.json(); if (!pwData.has_password) setUnlocked(true); } catch {} }
       const { data: brandData } = await sb.from('photographers').select('business_name, brand_settings').eq('id', g.photographer_id).single();
       if (brandData) setBrand(brandData);
       const { data: photoData } = await sb.from('photos').select('*').eq('gallery_id', g.id).in('status', ['edited', 'approved', 'delivered']).order('sort_order', { ascending: true });
       if (photoData && photoData.length > 0) {
-        try {
-          const urlRes = await fetch(`/api/gallery-photos?gallery_id=${g.id}`);
-          const urlData = await urlRes.json();
+        try { const urlRes = await fetch(`/api/gallery-photos?gallery_id=${g.id}`); const urlData = await urlRes.json();
           if (urlRes.ok && urlData.photos) setPhotos(urlData.photos); else setPhotos(photoData);
         } catch { setPhotos(photoData); }
       } else { setPhotos(photoData || []); }
@@ -246,11 +285,14 @@ export default function PublicGalleryPage() {
     setLightboxPhoto(displayPhotos[next]);
   }, [lightboxIndex, displayPhotos]);
 
+  // Pick the first photo as cover if no cover_photo_url
+  const coverPhoto = gallery?.cover_photo_url || (photos.length > 0 ? ((photos[0] as any).web_url || (photos[0] as any).thumb_url) : null);
+
   if (loading) return (
     <div className="min-h-screen bg-[#FAF9F7] flex items-center justify-center">
       <div className="flex flex-col items-center gap-3">
         <div className="w-9 h-9 border-2 rounded-full animate-spin" style={{ borderColor: brandColor + '20', borderTopColor: brandColor }} />
-        <span className="text-xs text-[#B5A999]">Loading gallery...</span>
+        <span className="text-[11px] text-[#B5A999] tracking-wide">Loading gallery...</span>
       </div>
     </div>
   );
@@ -272,52 +314,68 @@ export default function PublicGalleryPage() {
     <div className="min-h-screen bg-[#FAF9F7]">
       {lightboxPhoto && <Lightbox photo={lightboxPhoto} photos={displayPhotos} onClose={() => setLightboxPhoto(null)} onPrev={() => goLightbox(-1)} onNext={() => goLightbox(1)} onToggleFav={toggleFavorite} canDownload={canDownload} brandColor={brandColor} />}
 
-      {/* ─── Hero Header ─── */}
-      <div className="relative bg-white border-b border-[#F0ECE5]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 shadow-sm" style={{ backgroundColor: brandColor }}>{businessName.charAt(0)}</div>
-                <div>
-                  <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-[#B5A999]">{businessName}</p>
-                  {clientName && <p className="text-xs text-[#4A453F]">For {clientName}</p>}
-                </div>
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-semibold text-[#1A1A1A] tracking-tight">{gallery.title}</h1>
-              {gallery.description && <p className="text-sm text-[#4A453F] mt-2 max-w-xl leading-relaxed">{gallery.description}</p>}
-              <p className="text-xs text-[#B5A999] mt-2">{photos.length} photos{sections.length > 2 ? ` \u00B7 ${sections.length - 1} sections` : ''}</p>
+      {/* ─── Full-bleed Hero ─── */}
+      <section className="relative h-[70vh] sm:h-[80vh] flex items-end overflow-hidden bg-[#1A1A1A]">
+        {coverPhoto ? (
+          <img src={coverPhoto} alt={gallery.title} className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-[#2d1810] via-[#1A1A1A] to-[#0E0E10]" />
+        )}
+        {/* Gradient overlays */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent" />
+
+        {/* Hero content — bottom-left */}
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-6 sm:px-10 pb-10 sm:pb-14">
+          <p className="text-[11px] sm:text-xs font-medium uppercase tracking-[0.2em] text-white/50 mb-3">{businessName}</p>
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-semibold text-white leading-[1.05] tracking-tight max-w-2xl" style={{ fontFamily: "'Georgia', 'Libre Baskerville', serif" }}>
+            {gallery.title}
+          </h1>
+          {gallery.description && <p className="text-sm sm:text-base text-white/60 mt-3 max-w-lg leading-relaxed">{gallery.description}</p>}
+          <div className="flex items-center gap-4 mt-4 text-xs text-white/40">
+            <span>{photos.length} photos</span>
+            {clientName && <><span className="text-white/20">·</span><span>For {clientName}</span></>}
+          </div>
+        </div>
+
+        {/* Scroll indicator */}
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 animate-bounce">
+          <ArrowDown className="w-4 h-4 text-white/20" />
+        </div>
+      </section>
+
+      {/* ─── Sticky toolbar (appears on scroll) ─── */}
+      <div className={`sticky top-0 z-30 transition-all duration-300 ${headerVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}>
+        <div className="bg-white/90 backdrop-blur-xl border-b border-[#F0ECE5]/80">
+          <div className="max-w-7xl mx-auto px-4 sm:px-10 h-12 sm:h-14 flex items-center justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0" style={{ backgroundColor: brandColor }}>{businessName.charAt(0)}</div>
+              <span className="text-sm font-medium text-[#1A1A1A] truncate">{gallery.title}</span>
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <button onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-                className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-full border transition-all duration-200 ${showFavoritesOnly ? 'border-pink-200 bg-pink-50 text-pink-600' : 'border-[#E2DDD4] bg-white text-[#4A453F] hover:border-[#B5A999] hover:shadow-sm'}`}>
-                <Heart className={`w-3.5 h-3.5 ${showFavoritesOnly ? 'fill-pink-500' : ''}`} />
-                <span>Favourites{favoriteCount > 0 ? ` (${favoriteCount})` : ''}</span>
+                className={`flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-full border transition-all ${showFavoritesOnly ? 'border-pink-200 bg-pink-50 text-pink-600' : 'border-[#E2DDD4] text-[#4A453F] hover:border-[#B5A999]'}`}>
+                <Heart className={`w-3 h-3 ${showFavoritesOnly ? 'fill-pink-500' : ''}`} />
+                {favoriteCount > 0 && <span>{favoriteCount}</span>}
               </button>
               {canDownload && (
                 <div className="relative">
                   <button onClick={() => setShowDownloadMenu(!showDownloadMenu)}
-                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-full border border-[#E2DDD4] bg-white text-[#4A453F] hover:border-[#B5A999] hover:shadow-sm transition-all duration-200">
-                    <Download className="w-3.5 h-3.5" /><span className="hidden sm:inline">Download</span><ChevronDown className="w-3 h-3 text-[#B5A999]" />
+                    className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded-full border border-[#E2DDD4] text-[#4A453F] hover:border-[#B5A999] transition-all">
+                    <Download className="w-3 h-3" /><span className="hidden sm:inline">Download</span>
                   </button>
                   {showDownloadMenu && (<>
                     <div className="fixed inset-0 z-40" onClick={() => setShowDownloadMenu(false)} />
-                    <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl border border-[#F0ECE5] shadow-xl z-50 py-1.5 overflow-hidden">
-                      <button className="w-full px-4 py-2.5 text-left text-sm text-[#1A1A1A] hover:bg-[#FAF9F7] transition-colors flex items-center gap-2.5"><Download className="w-3.5 h-3.5 text-[#B5A999]" />Download Full Gallery</button>
-                      {favoriteCount > 0 && <button className="w-full px-4 py-2.5 text-left text-sm text-[#1A1A1A] hover:bg-[#FAF9F7] transition-colors flex items-center justify-between"><span className="flex items-center gap-2.5"><Heart className="w-3.5 h-3.5 text-pink-400" />Download Favourites</span><span className="text-xs text-[#B5A999] tabular-nums">{favoriteCount}</span></button>}
-                      <div className="border-t border-[#F0ECE5] my-1" />
-                      <button className="w-full px-4 py-2.5 text-left text-sm text-[#4A453F] hover:bg-[#FAF9F7] transition-colors flex items-center gap-2.5"><Check className="w-3.5 h-3.5 text-[#B5A999]" />Select Multiple...</button>
+                    <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl border border-[#F0ECE5] shadow-xl z-50 py-1">
+                      <button className="w-full px-3 py-2 text-left text-xs text-[#1A1A1A] hover:bg-[#FAF9F7] transition-colors">Download Full Gallery</button>
+                      {favoriteCount > 0 && <button className="w-full px-3 py-2 text-left text-xs text-[#1A1A1A] hover:bg-[#FAF9F7] transition-colors">Download Favourites ({favoriteCount})</button>}
                     </div>
                   </>)}
                 </div>
               )}
-              <button onClick={() => document.getElementById('shop-section')?.scrollIntoView({ behavior: 'smooth' })}
-                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-full border border-[#E2DDD4] bg-white text-[#4A453F] hover:border-[#B5A999] hover:shadow-sm transition-all duration-200">
-                <ShoppingBag className="w-3.5 h-3.5" /><span className="hidden sm:inline">Shop</span>
-              </button>
-              <button onClick={() => setGridSize(gridSize === 'large' ? 'small' : 'large')}
-                className="p-2 rounded-full border border-[#E2DDD4] bg-white text-[#B5A999] hover:text-[#4A453F] hover:border-[#B5A999] hover:shadow-sm transition-all duration-200 hidden sm:flex">
-                {gridSize === 'large' ? <Grid3X3 className="w-4 h-4" /> : <LayoutGrid className="w-4 h-4" />}
+              <button onClick={() => setLayout(layout === 'masonry' ? 'grid' : 'masonry')}
+                className="p-1.5 rounded-full border border-[#E2DDD4] text-[#B5A999] hover:text-[#4A453F] hover:border-[#B5A999] transition-all hidden sm:flex">
+                {layout === 'masonry' ? <Grid3X3 className="w-3.5 h-3.5" /> : <LayoutGrid className="w-3.5 h-3.5" />}
               </button>
             </div>
           </div>
@@ -326,24 +384,22 @@ export default function PublicGalleryPage() {
 
       {/* ─── Favourites banner ─── */}
       {showFavoritesOnly && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-5">
-          <div className="flex items-center justify-between rounded-2xl bg-pink-50/80 border border-pink-100 px-5 py-3.5">
-            <div className="flex items-center gap-2.5"><Heart className="w-4 h-4 text-pink-500 fill-pink-500" /><span className="text-sm text-pink-700 font-medium">{favoriteCount} Favourite{favoriteCount !== 1 ? 's' : ''}</span></div>
-            <div className="flex items-center gap-3">
-              {canDownload && favoriteCount > 0 && <button className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full text-white transition-all hover:shadow-md" style={{ backgroundColor: brandColor }}><Download className="w-3 h-3" />Download All</button>}
-              <button onClick={() => setShowFavoritesOnly(false)} className="text-xs text-pink-500 hover:text-pink-700 transition-colors font-medium">Show all photos</button>
-            </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-10 pt-5">
+          <div className="flex items-center justify-between rounded-xl bg-pink-50/80 border border-pink-100 px-4 py-3">
+            <div className="flex items-center gap-2"><Heart className="w-3.5 h-3.5 text-pink-500 fill-pink-500" /><span className="text-sm text-pink-700 font-medium">{favoriteCount} Favourite{favoriteCount !== 1 ? 's' : ''}</span></div>
+            <button onClick={() => setShowFavoritesOnly(false)} className="text-xs text-pink-500 hover:text-pink-700 font-medium">Show all</button>
           </div>
         </div>
       )}
 
       {/* ─── Section tabs ─── */}
       {sections.length > 2 && !showFavoritesOnly && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-5 pb-1">
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        <div className="max-w-7xl mx-auto px-4 sm:px-10 pt-6 pb-2">
+          <div className="flex items-center gap-2 overflow-x-auto">
             {sections.map(s => (
               <button key={s} onClick={() => setActiveSection(s)}
-                className={`px-4 py-2 text-xs font-medium rounded-full whitespace-nowrap border transition-all duration-200 ${activeSection === s ? 'text-white border-transparent shadow-sm' : 'border-[#E2DDD4] bg-white text-[#4A453F] hover:text-[#1A1A1A] hover:border-[#B5A999]'}`}
+                className={`px-3.5 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-all ${
+                  activeSection === s ? 'text-white shadow-sm' : 'text-[#4A453F] hover:text-[#1A1A1A] bg-white border border-[#E2DDD4] hover:border-[#B5A999]'}`}
                 style={activeSection === s ? { backgroundColor: brandColor } : undefined}>
                 {s === 'all' ? `All (${photos.length})` : s.charAt(0).toUpperCase() + s.slice(1).replace('-', ' ')}
               </button>
@@ -353,71 +409,34 @@ export default function PublicGalleryPage() {
       )}
 
       {/* ─── Photo Grid ─── */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-10 py-6 sm:py-8">
         {displayPhotos.length === 0 ? (
           <div className="text-center py-24">
             {showFavoritesOnly ? (<>
-              <div className="w-16 h-16 rounded-2xl mx-auto mb-4 bg-pink-50 flex items-center justify-center"><Heart className="w-7 h-7 text-pink-300" /></div>
-              <p className="text-sm text-[#4A453F] font-medium">No favourites yet</p>
-              <p className="text-xs text-[#B5A999] mt-1">Click the heart on any photo to add it here</p>
-              <button onClick={() => setShowFavoritesOnly(false)} className="text-xs mt-3 font-medium hover:underline" style={{ color: brandColor }}>Show all photos</button>
+              <Heart className="w-8 h-8 text-pink-200 mx-auto mb-3" />
+              <p className="text-sm text-[#4A453F]">No favourites yet</p>
+              <p className="text-xs text-[#B5A999] mt-1">Tap the heart on photos you love</p>
+              <button onClick={() => setShowFavoritesOnly(false)} className="text-xs mt-3 font-medium" style={{ color: brandColor }}>Show all photos</button>
             </>) : (<>
-              <div className="w-16 h-16 rounded-2xl mx-auto mb-4 bg-[#F0ECE5] flex items-center justify-center"><Camera className="w-7 h-7 text-[#B5A999]" /></div>
-              <p className="text-sm text-[#4A453F] font-medium">No photos in this section</p>
+              <Camera className="w-8 h-8 text-[#B5A999] mx-auto mb-3" />
+              <p className="text-sm text-[#4A453F]">No photos in this section</p>
             </>)}
           </div>
+        ) : layout === 'masonry' ? (
+          <MasonryGrid photos={displayPhotos} onPhotoClick={setLightboxPhoto} onToggleFav={toggleFavorite} canDownload={canDownload} brandColor={brandColor} />
         ) : (
-          <div className={`grid gap-2 sm:gap-2.5 ${gridSize === 'large' ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4' : 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6'}`}>
-            {displayPhotos.map(photo => (
-              <div key={photo.id} className="relative group cursor-pointer" onClick={() => setLightboxPhoto(photo)}>
-                <div className={`${gridSize === 'large' ? 'aspect-[4/3]' : 'aspect-square'} rounded-xl overflow-hidden bg-[#F0ECE5]`}>
-                  {(photo as any).thumb_url || (photo as any).web_url ? (
-                    <img src={(photo as any).thumb_url || (photo as any).web_url} alt={photo.filename} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" loading="lazy" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center"><Camera className="w-6 h-6 text-[#B5A999]" /></div>
-                  )}
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <div className="absolute bottom-0 left-0 right-0 p-2.5 flex items-center gap-1.5">
-                      <button onClick={(e) => { e.stopPropagation(); toggleFavorite(photo.id, !photo.is_favorite); }} className="p-2 rounded-full bg-white/90 hover:bg-white shadow-sm transition-all hover:scale-105 active:scale-95">
-                        <Heart className={`w-3.5 h-3.5 ${photo.is_favorite ? 'text-pink-500 fill-pink-500' : 'text-[#4A453F]'}`} />
-                      </button>
-                      {canDownload && (
-                        <button onClick={async (e) => {
-                          e.stopPropagation();
-                          try {
-                            const res = await fetch(`/api/gallery-photos?action=download&gallery_id=${photo.gallery_id}&photo_id=${photo.id}&resolution=full`);
-                            const data = await res.json();
-                            if (data.url) { const a = document.createElement('a'); a.href = data.url; a.download = photo.filename || 'photo.jpg'; document.body.appendChild(a); a.click(); document.body.removeChild(a); }
-                          } catch {}
-                        }} className="p-2 rounded-full bg-white/90 hover:bg-white shadow-sm transition-all hover:scale-105 active:scale-95">
-                          <Download className="w-3.5 h-3.5 text-[#4A453F]" />
-                        </button>
-                      )}
-                      <button onClick={(e) => e.stopPropagation()} className="p-2 rounded-full bg-white/90 hover:bg-white shadow-sm transition-all hover:scale-105 active:scale-95"><Share2 className="w-3.5 h-3.5 text-[#4A453F]" /></button>
-                    </div>
-                  </div>
-                </div>
-                {photo.is_favorite && (
-                  <div className="absolute top-2.5 right-2.5 group-hover:opacity-0 transition-opacity duration-200">
-                    <div className="p-1.5 rounded-full bg-white/90 shadow-sm"><Heart className="w-3.5 h-3.5 text-pink-500 fill-pink-500" /></div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+          <UniformGrid photos={displayPhotos} onPhotoClick={setLightboxPhoto} onToggleFav={toggleFavorite} canDownload={canDownload} brandColor={brandColor} gridSize={gridSize} />
         )}
       </div>
 
-      <div id="shop-section"><ShopSection brandColor={brandColor} /></div>
-
       {/* ─── Footer ─── */}
-      <footer className="border-t border-[#F0ECE5] bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex items-center justify-between">
+      <footer className="border-t border-[#F0ECE5]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-10 py-8 flex items-center justify-between">
           <div className="flex items-center gap-2 text-[11px] text-[#B5A999]">
-            <svg width="16" height="16" viewBox="0 0 44 44" fill="none"><path d="M22 3.5L25.5 15.5 22 13Z" fill="#C47D4A" opacity=".95"/><path d="M38 11 29 19 28.5 14.5Z" fill="#D4A574" opacity=".7"/><path d="M22 40.5 18.5 28.5 22 31Z" fill="#D4A574" opacity=".95"/><path d="M6 33 15 25.5 15.5 30Z" fill="#C47D4A" opacity=".7"/><circle cx="22" cy="22" r="4" fill="#C47D4A"/></svg>
-            <span>Powered by <span className="font-medium text-[#4A453F]">Apelier</span></span>
+            <svg width="14" height="14" viewBox="0 0 44 44" fill="none"><path d="M22 3.5L25.5 15.5 22 13Z" fill="#C47D4A" opacity=".95"/><path d="M38 11 29 19 28.5 14.5Z" fill="#D4A574" opacity=".7"/><path d="M22 40.5 18.5 28.5 22 31Z" fill="#D4A574" opacity=".95"/><path d="M6 33 15 25.5 15.5 30Z" fill="#C47D4A" opacity=".7"/><circle cx="22" cy="22" r="4" fill="#C47D4A"/></svg>
+            Powered by <span className="font-medium text-[#4A453F]">Apelier</span>
           </div>
-          <p className="text-[11px] text-[#B5A999] tabular-nums">{photos.length} photos</p>
+          <span className="text-[11px] text-[#B5A999] tabular-nums">{photos.length} photos</span>
         </div>
       </footer>
     </div>
