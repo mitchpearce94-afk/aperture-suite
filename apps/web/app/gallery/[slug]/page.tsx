@@ -89,7 +89,7 @@ function Lightbox({ photo, photos, onClose, onPrev, onNext, onToggleFav, canDown
     window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h);
   }, [onClose, onPrev, onNext]);
   return (
-    <div className="fixed inset-0 z-50 bg-black/95 flex flex-col" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-black/95" onClick={onClose}>
       {/* Top bar — fade gradient */}
       <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 sm:px-8 py-4" onClick={e => e.stopPropagation()}>
         <span className="text-[13px] text-white/40 tabular-nums">{idx + 1} / {photos.length}</span>
@@ -110,10 +110,10 @@ function Lightbox({ photo, photos, onClose, onPrev, onNext, onToggleFav, canDown
       {/* Nav arrows */}
       <button onClick={e => { e.stopPropagation(); onPrev(); }} className="absolute left-3 sm:left-8 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full text-white/10 hover:text-white/60 hover:bg-white/5 transition-all"><ChevronLeft className="w-8 h-8" /></button>
       <button onClick={e => { e.stopPropagation(); onNext(); }} className="absolute right-3 sm:right-8 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full text-white/10 hover:text-white/60 hover:bg-white/5 transition-all"><ChevronRight className="w-8 h-8" /></button>
-      {/* Image */}
-      <div className="flex-1 flex items-center justify-center px-16 sm:px-24 py-16" onClick={e => e.stopPropagation()}>
+      {/* Image — absolutely positioned to fill entire viewport with proper centering */}
+      <div className="absolute inset-0 flex items-center justify-center p-12 sm:p-16 md:p-20" onClick={e => e.stopPropagation()}>
         {(photo as any).web_url || (photo as any).thumb_url ? (
-          <img src={(photo as any).web_url || (photo as any).thumb_url} alt={photo.filename} className="max-w-full max-h-full object-contain" />
+          <img src={(photo as any).web_url || (photo as any).thumb_url} alt={photo.filename} className="max-w-full max-h-full object-contain select-none" />
         ) : (
           <div className="w-[800px] max-w-full aspect-[3/2] bg-[#111] rounded flex items-center justify-center"><Camera className="w-12 h-12 text-[#333]" /></div>
         )}
@@ -286,7 +286,8 @@ export default function PublicGalleryPage() {
   }, [lightboxIndex, displayPhotos]);
 
   // Pick the first photo as cover if no cover_photo_url
-  const coverPhoto = gallery?.cover_photo_url || (photos.length > 0 ? ((photos[0] as any).web_url || (photos[0] as any).thumb_url) : null);
+  // Prefer highest-res available for hero cover: web_url (2048px) > edited_url > thumb_url (400px)
+  const coverPhoto = gallery?.cover_photo_url || (photos.length > 0 ? ((photos[0] as any).web_url || (photos[0] as any).edited_url || (photos[0] as any).thumb_url) : null);
 
   if (loading) return (
     <div className="min-h-screen bg-[#FAF9F7] flex items-center justify-center">
@@ -308,7 +309,7 @@ export default function PublicGalleryPage() {
   if (!gallery) return null;
   if (gallery.access_type === 'password' && !unlocked) return <PasswordGate galleryId={gallery.id} onUnlock={() => setUnlocked(true)} brandColor={brandColor} businessName={businessName} />;
 
-  const clientName = gallery.client ? `${gallery.client.first_name} ${gallery.client.last_name}` : null;
+  const clientName = gallery.client ? [gallery.client.first_name, gallery.client.last_name].filter(Boolean).join(' ') || null : null;
 
   return (
     <div className="min-h-screen bg-[#FAF9F7]">
@@ -317,7 +318,7 @@ export default function PublicGalleryPage() {
       {/* ─── Full-bleed Hero ─── */}
       <section className="relative h-[70vh] sm:h-[80vh] flex items-end overflow-hidden bg-[#1A1A1A]">
         {coverPhoto ? (
-          <img src={coverPhoto} alt={gallery.title} className="absolute inset-0 w-full h-full object-cover" />
+          <img src={coverPhoto} alt={gallery.title} className="absolute inset-0 w-full h-full object-cover object-[center_30%]" />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-[#2d1810] via-[#1A1A1A] to-[#0E0E10]" />
         )}
@@ -333,8 +334,8 @@ export default function PublicGalleryPage() {
           </h1>
           {gallery.description && <p className="text-sm sm:text-base text-white/60 mt-3 max-w-lg leading-relaxed">{gallery.description}</p>}
           <div className="flex items-center gap-4 mt-4 text-xs text-white/40">
-            <span>{photos.length} photos</span>
-            {clientName && <><span className="text-white/20">·</span><span>For {clientName}</span></>}
+            <span>{photos.length} photo{photos.length !== 1 ? 's' : ''}</span>
+            {clientName && clientName.trim() && !clientName.includes('null') && <><span className="text-white/20">·</span><span>For {clientName}</span></>}
           </div>
         </div>
 
@@ -436,7 +437,7 @@ export default function PublicGalleryPage() {
             <svg width="14" height="14" viewBox="0 0 44 44" fill="none"><path d="M22 3.5L25.5 15.5 22 13Z" fill="#C47D4A" opacity=".95"/><path d="M38 11 29 19 28.5 14.5Z" fill="#D4A574" opacity=".7"/><path d="M22 40.5 18.5 28.5 22 31Z" fill="#D4A574" opacity=".95"/><path d="M6 33 15 25.5 15.5 30Z" fill="#C47D4A" opacity=".7"/><circle cx="22" cy="22" r="4" fill="#C47D4A"/></svg>
             Powered by <span className="font-medium text-[#4A453F]">Apelier</span>
           </div>
-          <span className="text-[11px] text-[#B5A999] tabular-nums">{photos.length} photos</span>
+          <span className="text-[11px] text-[#B5A999] tabular-nums">{photos.length} photo{photos.length !== 1 ? 's' : ''}</span>
         </div>
       </footer>
     </div>
