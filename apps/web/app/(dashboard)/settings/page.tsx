@@ -78,6 +78,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [syncedJobs, setSyncedJobs] = useState(0);
 
   // Profile form
@@ -201,29 +202,27 @@ export default function SettingsPage() {
   async function saveProfile() {
     if (!photographer) return;
     setSaving(true);
+    setSaveError(null);
     const sb = createSupabaseClient();
 
-    // Upload logo if a new file was selected
+    // Step 1: Upload logo if a new file was selected
     let logoKey = (photographer.brand_settings as any)?.logo_key || null;
     if (logoFile) {
       setLogoUploading(true);
-      try {
-        const ext = logoFile.name.split('.').pop()?.toLowerCase() || 'png';
-        const newKey = `${photographer.id}/branding/logo_${Date.now()}.${ext}`;
-        const { error: uploadErr } = await sb.storage
-          .from('photos')
-          .upload(newKey, logoFile, { contentType: logoFile.type, upsert: true });
-        if (uploadErr) {
-          console.error('Logo upload error:', uploadErr);
-        } else {
-          // Delete old logo if exists
-          if (logoKey) {
-            await sb.storage.from('photos').remove([logoKey]);
-          }
-          logoKey = newKey;
+      const ext = logoFile.name.split('.').pop()?.toLowerCase() || 'png';
+      const newKey = `${photographer.id}/branding/logo_${Date.now()}.${ext}`;
+      const { error: uploadErr } = await sb.storage
+        .from('photos')
+        .upload(newKey, logoFile, { contentType: logoFile.type, upsert: true });
+      if (uploadErr) {
+        console.error('Logo upload error:', uploadErr);
+        setSaveError(`Logo upload failed: ${uploadErr.message}`);
+      } else {
+        // Delete old logo if it exists
+        if (logoKey) {
+          await sb.storage.from('photos').remove([logoKey]);
         }
-      } catch (err) {
-        console.error('Logo upload error:', err);
+        logoKey = newKey;
       }
       setLogoUploading(false);
       setLogoFile(null);
@@ -237,44 +236,84 @@ export default function SettingsPage() {
       logoKey = null;
     }
 
-    // Build updated brand_settings preserving existing fields
-    const updatedBrandSettings = {
+    // Step 2: Build brand_settings — use null instead of undefined for JSON
+    const updatedBrandSettings: Record<string, any> = {
       ...(photographer.brand_settings || {}),
-      logo_key: logoKey || undefined,
-      logo_url: undefined, // Remove old logo_url field if present
     };
+    if (logoKey) {
+      updatedBrandSettings.logo_key = logoKey;
+    } else {
+      delete updatedBrandSettings.logo_key;
+      delete updatedBrandSettings.logo_url;
+    }
+
+    // Step 3: Save core profile fields (ones that definitely exist as DB columns)
+    const updatePayload: Record<string, any> = {
+      name: profileForm.name,
+      business_name: profileForm.business_name,
+      phone: profileForm.phone,
+      timezone: profileForm.timezone,
+      address: {
+        street: profileForm.address_street,
+        city: profileForm.address_city,
+        state: profileForm.address_state,
+        zip: profileForm.address_zip,
+      },
+      brand_settings: updatedBrandSettings,
+    };
+
+    // Add optional columns — these may not exist if migration hasn't been run
+    // Supabase will ignore unknown columns gracefully
+    updatePayload.currency = profileForm.currency;
+    updatePayload.website = profileForm.website;
+    updatePayload.instagram = profileForm.instagram;
+    updatePayload.abn = profileForm.abn;
 
     const { error } = await sb
       .from('photographers')
-      .update({
-        name: profileForm.name,
-        business_name: profileForm.business_name,
-        phone: profileForm.phone,
-        timezone: profileForm.timezone,
-        currency: profileForm.currency,
-        website: profileForm.website,
-        instagram: profileForm.instagram,
-        abn: profileForm.abn,
-        address: {
-          street: profileForm.address_street,
-          city: profileForm.address_city,
-          state: profileForm.address_state,
-          zip: profileForm.address_zip,
-        },
-        brand_settings: updatedBrandSettings,
-      })
+      .update(updatePayload)
       .eq('id', photographer.id);
 
+    if (error) {
+      console.error('Profile save error:', error);
+      // If the error is about unknown columns, retry without them
+      if (error.message?.includes('column') || error.code === '42703') {
+        const { error: retryErr } = await sb
+          .from('photographers')
+          .update({
+            name: profileForm.name,
+            business_name: profileForm.business_name,
+            phone: profileForm.phone,
+            timezone: profileForm.timezone,
+            address: {
+              street: profileForm.address_street,
+              city: profileForm.address_city,
+              state: profileForm.address_state,
+              zip: profileForm.address_zip,
+            },
+            brand_settings: updatedBrandSettings,
+          })
+          .eq('id', photographer.id);
+        if (retryErr) {
+          setSaveError(`Save failed: ${retryErr.message}`);
+        } else {
+          setSaveError('Saved (some fields need migration — run the SQL migration for website, instagram, abn, currency)');
+        }
+      } else {
+        setSaveError(`Save failed: ${error.message}`);
+      }
+    }
+
     setSaving(false);
-    if (!error) {
-      // Refresh logo preview with a fresh signed URL
+
+    // Step 4: Refresh logo preview & update local state
+    if (!error || error?.code === '42703') {
       if (logoKey) {
         try {
           const { data: signedData } = await sb.storage.from('photos').createSignedUrl(logoKey, 3600);
           if (signedData?.signedUrl) setLogoPreview(signedData.signedUrl);
         } catch {}
       }
-      // Update photographer in state so subsequent saves have correct brand_settings
       setPhotographer((prev) => prev ? { ...prev, brand_settings: updatedBrandSettings as any } : null);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -500,12 +539,12 @@ export default function SettingsPage() {
                     )}
                   </div>
                   <div className="space-y-3 pt-1">
-                    <p className="text-xs text-slate-500">PNG or SVG, recommended 500×500px or larger. Transparent background works best.</p>
+                    <p className="text-xs text-slate-500">PNG or JPEG, recommended 500×500px or larger. Transparent background works best.</p>
                     <div className="flex items-center gap-2">
                       <label className="cursor-pointer">
                         <input
                           type="file"
-                          accept="image/png,image/svg+xml,image/jpeg"
+                          accept="image/png,image/jpeg"
                           className="hidden"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
@@ -536,6 +575,7 @@ export default function SettingsPage() {
                 <Button onClick={saveProfile} disabled={saving || logoUploading}>
                   {saved ? <><Check className="w-3.5 h-3.5" />Saved</> : saving ? 'Saving...' : <><Save className="w-3.5 h-3.5" />Save Changes</>}
                 </Button>
+                {saveError && <p className="text-xs text-red-400">{saveError}</p>}
               </div>
             </div>
           )}
