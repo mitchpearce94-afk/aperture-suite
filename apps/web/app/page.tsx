@@ -282,6 +282,129 @@ function PillarsSection() {
   );
 }
 
+/* ─── Before/After Slider ─── */
+function BeforeAfterSlider() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState(50);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const updatePosition = (clientX: number) => {
+    const container = containerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const pct = Math.max(2, Math.min(98, (x / rect.width) * 100));
+    setPosition(pct);
+  };
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    setIsDragging(true);
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    updatePosition(e.clientX);
+  };
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDragging) return;
+    updatePosition(e.clientX);
+  };
+  const handlePointerUp = () => setIsDragging(false);
+
+  return (
+    <Section className="py-24 md:py-32 bg-gradient-to-b from-transparent via-brand-500/[0.02] to-transparent">
+      <div className="max-w-5xl mx-auto px-6">
+        <div className="text-center mb-12">
+          <p className="text-xs font-sans font-semibold uppercase tracking-[0.2em] text-brand-500 mb-4">See the difference</p>
+          <h2 className="font-display text-3xl md:text-4xl text-white mb-4">RAW to finished. In minutes.</h2>
+          <p className="text-base font-body text-warm-grey max-w-xl mx-auto">
+            Drag the slider to compare. The AI learns your exact editing style from just 10 before/after pairs — then applies it to every photo.
+          </p>
+        </div>
+
+        {/* Slider container */}
+        <div
+          ref={containerRef}
+          className="relative max-w-3xl mx-auto rounded-2xl overflow-hidden border border-white/[0.08] shadow-2xl shadow-black/40 select-none touch-none cursor-col-resize"
+          style={{ aspectRatio: '3 / 2' }}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+        >
+          {/* "After" (edited) — full background */}
+          <div className="absolute inset-0" style={{
+            background: `
+              linear-gradient(135deg, #1a0f08 0%, #2d1810 15%, #4a2818 30%, #6b3a1f 45%, #8b5e3c 55%, #c47d4a 65%, #d4a574 75%, #e8c9a0 85%, #f5e6d0 95%),
+              radial-gradient(ellipse at 30% 60%, rgba(196,125,74,0.4) 0%, transparent 60%),
+              radial-gradient(ellipse at 70% 40%, rgba(212,165,116,0.3) 0%, transparent 50%)
+            `,
+            backgroundBlendMode: 'overlay',
+          }}>
+            {/* Simulated warm edited photo elements */}
+            <div className="absolute inset-0 flex items-end justify-center pb-8">
+              <div className="w-32 h-44 md:w-40 md:h-56 rounded-xl bg-gradient-to-b from-brand-200/30 to-brand-600/20 border border-brand-400/10 backdrop-blur-sm" />
+            </div>
+            <div className="absolute top-6 left-6 w-20 h-12 rounded-lg bg-brand-400/10 backdrop-blur-sm" />
+            <div className="absolute top-1/4 right-1/4 w-16 h-16 rounded-full bg-brand-300/15" />
+            {/* Warm light leak overlay */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-brand-500/[0.05] to-brand-300/[0.08]" />
+          </div>
+
+          {/* "Before" (RAW) — clipped by slider position */}
+          <div
+            className="absolute inset-0"
+            style={{
+              clipPath: `inset(0 ${100 - position}% 0 0)`,
+              background: `
+                linear-gradient(135deg, #1a1a1e 0%, #2a2a2e 15%, #3a3a3e 30%, #4a4a4e 45%, #5a5a5e 55%, #6a6a6e 65%, #7a7a7e 75%, #9a9a9e 85%, #bababe 95%),
+                radial-gradient(ellipse at 30% 60%, rgba(100,100,110,0.4) 0%, transparent 60%),
+                radial-gradient(ellipse at 70% 40%, rgba(140,140,150,0.3) 0%, transparent 50%)
+              `,
+              backgroundBlendMode: 'overlay',
+            }}
+          >
+            {/* Same composition but desaturated / flat */}
+            <div className="absolute inset-0 flex items-end justify-center pb-8">
+              <div className="w-32 h-44 md:w-40 md:h-56 rounded-xl bg-gradient-to-b from-gray-400/20 to-gray-600/15 border border-gray-500/10 backdrop-blur-sm" />
+            </div>
+            <div className="absolute top-6 left-6 w-20 h-12 rounded-lg bg-gray-500/10 backdrop-blur-sm" />
+            <div className="absolute top-1/4 right-1/4 w-16 h-16 rounded-full bg-gray-400/10" />
+            {/* Flat / slightly cool overlay */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-slate-500/[0.03] to-blue-900/[0.05]" />
+          </div>
+
+          {/* Divider line + handle */}
+          <div
+            className="absolute top-0 bottom-0 z-10"
+            style={{ left: `${position}%`, transform: 'translateX(-50%)' }}
+          >
+            {/* Vertical line */}
+            <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[2px] bg-white/80 shadow-lg shadow-black/30" />
+
+            {/* Drag handle */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white shadow-xl shadow-black/40 flex items-center justify-center gap-0.5 border-2 border-white/90">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M4.5 3L1.5 7L4.5 11" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M9.5 3L12.5 7L9.5 11" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+          </div>
+
+          {/* Labels */}
+          <div className="absolute top-4 left-4 z-10 px-3 py-1.5 rounded-full bg-black/50 backdrop-blur-md border border-white/10">
+            <span className="text-[10px] font-sans font-semibold uppercase tracking-widest text-white/80">RAW</span>
+          </div>
+          <div className="absolute top-4 right-4 z-10 px-3 py-1.5 rounded-full bg-black/50 backdrop-blur-md border border-white/10">
+            <span className="text-[10px] font-sans font-semibold uppercase tracking-widest text-brand-300">Edited</span>
+          </div>
+        </div>
+
+        <p className="text-center text-xs font-body text-dark-warm mt-6">
+          This is a simulated preview. With Apelier, your actual RAW photos get this treatment — using your trained editing style.
+        </p>
+      </div>
+    </Section>
+  );
+}
+
 /* ─── How It Works ─── */
 function HowItWorksSection() {
   const steps = [
@@ -518,6 +641,7 @@ export default function HomePage() {
       <Hero />
       <ReplacesSection />
       <PillarsSection />
+      <BeforeAfterSlider />
       <HowItWorksSection />
       <StatsSection />
       <ComparisonSection />
