@@ -172,30 +172,51 @@ function Hero() {
 /* ─── Replaces Section ─── */
 function ReplacesSection() {
   const tools = [
-    { name: 'Studio Ninja', category: 'CRM' },
-    { name: 'HoneyBook', category: 'CRM' },
-    { name: 'Dubsado', category: 'CRM' },
-    { name: 'Aftershoot', category: 'Editing' },
-    { name: 'Imagen', category: 'Editing' },
-    { name: 'Pic-Time', category: 'Galleries' },
-    { name: 'Pixieset', category: 'Galleries' },
-    { name: 'ShootProof', category: 'Galleries' },
+    { icon: Users, name: 'Your CRM', cost: '$28–45/mo' },
+    { icon: Wand2, name: 'Your editing app', cost: '$15–30/mo' },
+    { icon: ImageIcon, name: 'Your gallery host', cost: '$15–58/mo' },
   ];
 
   return (
     <Section className="py-20 border-t border-white/[0.04]">
-      <div className="max-w-6xl mx-auto px-6 text-center">
+      <div className="max-w-4xl mx-auto px-6 text-center">
         <p className="text-xs font-sans font-semibold uppercase tracking-[0.2em] text-brand-500 mb-4">Replaces your entire stack</p>
-        <h2 className="font-display text-2xl md:text-3xl text-white mb-12">One subscription. Everything you need.</h2>
-        <div className="flex flex-wrap items-center justify-center gap-4 md:gap-6">
-          {tools.map((tool) => (
-            <div key={tool.name} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-white/[0.03] border border-white/[0.06] hover:border-brand-500/20 transition-colors">
-              <span className="text-sm font-body text-slate-300 line-through decoration-brand-500/60">{tool.name}</span>
-              <span className="text-[9px] font-sans uppercase tracking-wider text-dark-warm">{tool.category}</span>
+        <h2 className="font-display text-2xl md:text-3xl text-white mb-12">One subscription instead of three</h2>
+
+        <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-3 mb-8">
+          {tools.map((tool, i) => (
+            <div key={tool.name} className="contents">
+              <div className="flex items-center gap-3 px-5 py-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] w-full md:w-auto">
+                <div className="w-9 h-9 rounded-xl bg-white/[0.04] flex items-center justify-center flex-shrink-0">
+                  <tool.icon className="w-4.5 h-4.5 text-warm-grey" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-sans font-medium text-slate-300 line-through decoration-warm-grey/40">{tool.name}</p>
+                  <p className="text-xs font-body text-dark-warm">{tool.cost}</p>
+                </div>
+              </div>
+              {i < tools.length - 1 && (
+                <span className="text-dark-warm text-lg font-light hidden md:block">+</span>
+              )}
             </div>
           ))}
+
+          <span className="text-warm-grey text-lg font-light hidden md:block mx-2">=</span>
+
+          <div className="flex items-center gap-3 px-5 py-4 rounded-2xl bg-brand-500/[0.08] border border-brand-500/30 w-full md:w-auto">
+            <div className="w-9 h-9 rounded-xl bg-brand-500/20 flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-4.5 h-4.5 text-brand-400" />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-sans font-semibold text-white">Apelier</p>
+              <p className="text-xs font-body text-brand-300">From $39/mo — everything included</p>
+            </div>
+          </div>
         </div>
-        <p className="text-sm font-body text-dark-warm mt-8">Stop paying for 3–4 separate tools. Stop copying data between them. Just use Apelier.</p>
+
+        <p className="text-sm font-body text-dark-warm max-w-lg mx-auto">
+          Most photographers pay $70–150/mo for separate CRM, editing, and gallery tools — and waste hours copying data between them. Apelier does it all.
+        </p>
       </div>
     </Section>
   );
@@ -329,18 +350,21 @@ function StatsSection() {
 /* ─── Comparison ─── */
 function ComparisonSection() {
   const features = [
-    { name: 'CRM & Booking', apelier: true, ninja: true, pictime: false, aftershoot: false },
-    { name: 'AI Photo Editing', apelier: true, ninja: false, pictime: false, aftershoot: true },
-    { name: 'Client Galleries', apelier: true, ninja: false, pictime: true, aftershoot: false },
-    { name: 'E-Signatures', apelier: true, ninja: true, pictime: false, aftershoot: false },
-    { name: 'Prompt-Based Edits', apelier: true, ninja: false, pictime: false, aftershoot: false },
-    { name: 'Auto Scene Cleanup', apelier: true, ninja: false, pictime: false, aftershoot: false },
-    { name: 'End-to-End Automation', apelier: true, ninja: false, pictime: false, aftershoot: false },
+    { name: 'CRM & Booking', apelier: true, crm: true, editing: false, gallery: false },
+    { name: 'AI Photo Editing', apelier: true, crm: false, editing: true, gallery: false },
+    { name: 'Client Galleries', apelier: true, crm: false, editing: false, gallery: true },
+    { name: 'E-Signatures & Contracts', apelier: true, crm: '◐', editing: false, gallery: false },
+    { name: 'Automated Invoicing', apelier: true, crm: true, editing: false, gallery: false },
+    { name: 'Prompt-Based Edits', apelier: true, crm: false, editing: false, gallery: false },
+    { name: 'Auto Scene Cleanup', apelier: true, crm: false, editing: false, gallery: false },
+    { name: 'End-to-End Automation', apelier: true, crm: false, editing: false, gallery: false },
   ];
 
-  const Cell = ({ yes }: { yes: boolean }) => (
+  const Cell = ({ value }: { value: boolean | string }) => (
     <td className="px-4 py-3 text-center">
-      {yes ? <CheckCircle2 className="w-4 h-4 text-brand-400 mx-auto" /> : <span className="text-dark-warm text-xs">—</span>}
+      {value === true ? <CheckCircle2 className="w-4 h-4 text-brand-400 mx-auto" /> :
+       value === '◐' ? <span className="text-warm-grey text-xs">Partial</span> :
+       <span className="text-dark-warm text-xs">—</span>}
     </td>
   );
 
@@ -348,8 +372,9 @@ function ComparisonSection() {
     <Section className="py-24 md:py-32">
       <div className="max-w-4xl mx-auto px-6">
         <div className="text-center mb-12">
-          <p className="text-xs font-sans font-semibold uppercase tracking-[0.2em] text-brand-500 mb-4">Why switch?</p>
-          <h2 className="font-display text-3xl md:text-4xl text-white mb-4">Compare Apelier</h2>
+          <p className="text-xs font-sans font-semibold uppercase tracking-[0.2em] text-brand-500 mb-4">Why use one platform?</p>
+          <h2 className="font-display text-3xl md:text-4xl text-white mb-4">All-in-one vs piecing it together</h2>
+          <p className="text-sm font-body text-warm-grey max-w-lg mx-auto">See what you get with Apelier compared to using separate tools for each job.</p>
         </div>
 
         <div className="rounded-2xl border border-white/[0.06] overflow-hidden">
@@ -359,33 +384,38 @@ function ComparisonSection() {
                 <tr className="border-b border-white/[0.06] bg-white/[0.02]">
                   <th className="text-left px-4 py-3 font-sans font-medium text-warm-grey text-xs uppercase tracking-wider">Feature</th>
                   <th className="px-4 py-3 font-sans font-semibold text-brand-400 text-xs uppercase tracking-wider">Apelier</th>
-                  <th className="px-4 py-3 font-sans font-medium text-warm-grey text-xs uppercase tracking-wider">Studio Ninja</th>
-                  <th className="px-4 py-3 font-sans font-medium text-warm-grey text-xs uppercase tracking-wider">Pic-Time</th>
-                  <th className="px-4 py-3 font-sans font-medium text-warm-grey text-xs uppercase tracking-wider">Aftershoot</th>
+                  <th className="px-4 py-3 font-sans font-medium text-warm-grey text-xs uppercase tracking-wider">CRM Tool</th>
+                  <th className="px-4 py-3 font-sans font-medium text-warm-grey text-xs uppercase tracking-wider">Editing App</th>
+                  <th className="px-4 py-3 font-sans font-medium text-warm-grey text-xs uppercase tracking-wider">Gallery Host</th>
                 </tr>
               </thead>
               <tbody>
                 {features.map((feat) => (
                   <tr key={feat.name} className="border-b border-white/[0.04] hover:bg-white/[0.01]">
                     <td className="px-4 py-3 font-body text-slate-300">{feat.name}</td>
-                    <Cell yes={feat.apelier} />
-                    <Cell yes={feat.ninja} />
-                    <Cell yes={feat.pictime} />
-                    <Cell yes={feat.aftershoot} />
+                    <Cell value={feat.apelier} />
+                    <Cell value={feat.crm} />
+                    <Cell value={feat.editing} />
+                    <Cell value={feat.gallery} />
                   </tr>
                 ))}
                 <tr className="bg-white/[0.02]">
-                  <td className="px-4 py-3 font-body font-medium text-white">Monthly cost</td>
+                  <td className="px-4 py-3 font-body font-medium text-white">Typical monthly cost</td>
                   <td className="px-4 py-3 text-center font-sans font-bold text-brand-400">$39+</td>
                   <td className="px-4 py-3 text-center font-sans text-dark-warm">$28–45</td>
-                  <td className="px-4 py-3 text-center font-sans text-dark-warm">$15–58</td>
                   <td className="px-4 py-3 text-center font-sans text-dark-warm">$15–30</td>
+                  <td className="px-4 py-3 text-center font-sans text-dark-warm">$15–58</td>
+                </tr>
+                <tr className="bg-brand-500/[0.04]">
+                  <td className="px-4 py-3 font-body font-medium text-white">Combined total</td>
+                  <td className="px-4 py-3 text-center font-sans font-bold text-brand-400">$39+</td>
+                  <td colSpan={3} className="px-4 py-3 text-center font-sans font-medium text-warm-grey">$58–133/mo for all three</td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
-        <p className="text-center text-xs font-body text-dark-warm mt-4">Typical photographer spends $70–150/mo on separate tools. Apelier starts at $39/mo for everything.</p>
+        <p className="text-center text-xs font-body text-dark-warm mt-4">Apelier replaces all three — and connects them together so nothing falls through the cracks.</p>
       </div>
     </Section>
   );
@@ -434,7 +464,6 @@ function PricingPreview() {
 
 /* ─── Migration CTA ─── */
 function MigrationCTA() {
-  const platforms = ['HoneyBook', 'Dubsado', 'Studio Ninja', 'VSCO Workspace', '17hats', 'Pixieset', 'Light Blue'];
   return (
     <Section className="py-24 md:py-32">
       <div className="max-w-4xl mx-auto px-6 text-center">
@@ -443,10 +472,15 @@ function MigrationCTA() {
           <div className="relative">
             <Shield className="w-10 h-10 text-brand-400 mx-auto mb-6" />
             <h2 className="font-display text-2xl md:text-3xl text-white mb-4">Switching is painless</h2>
-            <p className="text-base font-body text-warm-grey max-w-lg mx-auto mb-6">Import your clients, jobs, and invoices from your current CRM in minutes. Our smart mapper handles the rest.</p>
-            <div className="flex flex-wrap items-center justify-center gap-2 mb-8">
-              {platforms.map((p) => (
-                <span key={p} className="text-xs font-sans text-dark-warm px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.06]">{p}</span>
+            <p className="text-base font-body text-warm-grey max-w-lg mx-auto mb-6">
+              Already using a CRM or gallery platform? Import your clients, jobs, and invoices in minutes. Upload a CSV, our smart mapper does the rest.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3 mb-8">
+              {['CSV Import', 'Smart Field Mapping', 'Deduplication', 'Keeps Your History'].map((p) => (
+                <span key={p} className="inline-flex items-center gap-1.5 text-xs font-sans text-slate-300 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.06]">
+                  <CheckCircle2 className="w-3 h-3 text-brand-400" />
+                  {p}
+                </span>
               ))}
             </div>
             <Link href="/signup" className="inline-flex items-center gap-2 px-8 py-4 text-base font-sans font-semibold text-white bg-brand-500 rounded-full hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/20">
