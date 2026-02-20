@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { MarketingLayout, ApelierLogo } from '@/components/marketing/marketing-layout';
 import {
   ArrowRight, Camera, Wand2, ImageIcon, Users, CalendarCheck,
-  ChevronRight, CheckCircle2, Sparkles, Shield,
+  ChevronRight, CheckCircle2, Sparkles, Shield, Clock,
 } from 'lucide-react';
 
 /* ─── Intersection Observer hook for scroll animations ─── */
@@ -172,9 +172,9 @@ function Hero() {
 /* ─── Replaces Section ─── */
 function ReplacesSection() {
   const tools = [
-    { icon: Users, name: 'Your CRM', cost: '$28–45/mo' },
-    { icon: Wand2, name: 'Your editing app', cost: '$15–30/mo' },
-    { icon: ImageIcon, name: 'Your gallery host', cost: '$15–58/mo' },
+    { icon: Users, name: 'Your CRM', cost: '$28–45/mo', extra: null },
+    { icon: Wand2, name: 'Your editing app', cost: '$15–30/mo', extra: '+ 8–15 hrs/week editing' },
+    { icon: ImageIcon, name: 'Your gallery host', cost: '$15–58/mo', extra: null },
   ];
 
   return (
@@ -193,6 +193,12 @@ function ReplacesSection() {
                 <div className="text-left">
                   <p className="text-sm font-sans font-medium text-slate-300 line-through decoration-warm-grey/40">{tool.name}</p>
                   <p className="text-xs font-body text-dark-warm">{tool.cost}</p>
+                  {tool.extra && (
+                    <p className="text-[10px] font-body text-warm-grey/70 flex items-center gap-1 mt-0.5">
+                      <Clock className="w-2.5 h-2.5" />
+                      {tool.extra}
+                    </p>
+                  )}
                 </div>
               </div>
               {i < tools.length - 1 && (
@@ -210,12 +216,16 @@ function ReplacesSection() {
             <div className="text-left">
               <p className="text-sm font-sans font-semibold text-white">Apelier</p>
               <p className="text-xs font-body text-brand-300">From $39/mo — everything included</p>
+              <p className="text-[10px] font-body text-brand-400/70 flex items-center gap-1 mt-0.5">
+                <Clock className="w-2.5 h-2.5" />
+                AI edits in minutes, not days
+              </p>
             </div>
           </div>
         </div>
 
         <p className="text-sm font-body text-dark-warm max-w-lg mx-auto">
-          Most photographers pay $70–150/mo for separate CRM, editing, and gallery tools — and waste hours copying data between them. Apelier does it all.
+          Most photographers pay $70–150/mo for separate CRM, editing, and gallery tools — and spend 8–15 hours a week on manual edits. Apelier does it all.
         </p>
       </div>
     </Section>
