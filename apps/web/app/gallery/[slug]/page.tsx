@@ -209,8 +209,8 @@ function Lightbox({ photo, photos, onClose, onPrev, onNext, onToggleFav, canDown
       )}
       <div className="absolute inset-0 flex items-center justify-center p-4 sm:p-14 md:p-20" onClick={e => e.stopPropagation()}>
         {imgSrc ? (
-          <div className="relative max-w-full max-h-full flex items-center justify-center">
-            <img src={imgSrc} alt={photo.filename} className="max-w-full max-h-full object-contain select-none" />
+          <div className="relative inline-flex items-center justify-center" style={{ maxWidth: '100%', maxHeight: '100%' }}>
+            <img src={imgSrc} alt={photo.filename} className="max-w-full max-h-[calc(100vh-8rem)] object-contain select-none block" />
             {/* Watermark overlay — photographer's logo */}
             {watermarkUrl && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">

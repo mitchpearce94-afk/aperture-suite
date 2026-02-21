@@ -36,6 +36,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ has_password: !!(gallery?.password_hash) });
     }
 
+    // Get plaintext password — for photographer dashboard only
+    if (action === 'get') {
+      const sb = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      );
+      const { data: gallery } = await sb
+        .from('galleries')
+        .select('password_plain')
+        .eq('id', gallery_id)
+        .single();
+      
+      return NextResponse.json({ password: gallery?.password_plain || null });
+    }
+
     if (!password) {
       return NextResponse.json({ error: 'Missing password' }, { status: 400 });
     }
@@ -71,21 +86,6 @@ export async function POST(request: NextRequest) {
         }
       }
       return NextResponse.json({ success: true });
-    }
-
-    if (action === 'get') {
-      // Get plaintext password — for photographer dashboard only (requires service role)
-      const sb = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      );
-      const { data: gallery } = await sb
-        .from('galleries')
-        .select('password_plain')
-        .eq('id', gallery_id)
-        .single();
-      
-      return NextResponse.json({ password: gallery?.password_plain || null });
     }
 
     if (action === 'verify') {
