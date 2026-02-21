@@ -21,6 +21,7 @@ type BrandData = {
   business_name?: string;
   brand_settings: { primary_color?: string; secondary_color?: string; logo_url?: string; logo_key?: string };
   logo_url?: string | null;
+  show_watermark?: boolean;
 };
 
 /* ─── Apelier Aperture Mark ─── */
@@ -158,9 +159,9 @@ function PasswordGate({ galleryId, onUnlock, brandColor, businessName, logoUrl }
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /* CINEMATIC LIGHTBOX                                                        */
 /* ═══════════════════════════════════════════════════════════════════════════ */
-function Lightbox({ photo, photos, onClose, onPrev, onNext, onToggleFav, canDownload, brandColor }: {
+function Lightbox({ photo, photos, onClose, onPrev, onNext, onToggleFav, canDownload, brandColor, watermarkUrl }: {
   photo: Photo; photos: Photo[]; onClose: () => void; onPrev: () => void; onNext: () => void;
-  onToggleFav: (id: string, fav: boolean) => void; canDownload: boolean; brandColor: string;
+  onToggleFav: (id: string, fav: boolean) => void; canDownload: boolean; brandColor: string; watermarkUrl?: string | null;
 }) {
   const idx = photos.findIndex(p => p.id === photo.id);
 
@@ -208,7 +209,15 @@ function Lightbox({ photo, photos, onClose, onPrev, onNext, onToggleFav, canDown
       )}
       <div className="absolute inset-0 flex items-center justify-center p-4 sm:p-14 md:p-20" onClick={e => e.stopPropagation()}>
         {imgSrc ? (
-          <img src={imgSrc} alt={photo.filename} className="max-w-full max-h-full object-contain select-none" />
+          <div className="relative max-w-full max-h-full flex items-center justify-center">
+            <img src={imgSrc} alt={photo.filename} className="max-w-full max-h-full object-contain select-none" />
+            {/* Watermark overlay — photographer's logo */}
+            {watermarkUrl && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <img src={watermarkUrl} alt="" className="w-1/4 max-w-[200px] opacity-[0.3] select-none" draggable={false} />
+              </div>
+            )}
+          </div>
         ) : (
           <div className="w-[800px] max-w-full aspect-[3/2] bg-white/[0.02] rounded-lg flex items-center justify-center"><Camera className="w-12 h-12 text-white/10" /></div>
         )}
@@ -225,9 +234,9 @@ function Lightbox({ photo, photos, onClose, onPrev, onNext, onToggleFav, canDown
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /* PHOTO TILE WITH SCROLL ANIMATION                                          */
 /* ═══════════════════════════════════════════════════════════════════════════ */
-function PhotoTile({ photo, index, onClick, onToggleFav, canDownload }: {
+function PhotoTile({ photo, index, onClick, onToggleFav, canDownload, watermarkUrl }: {
   photo: Photo; index: number; onClick: () => void;
-  onToggleFav: (id: string, fav: boolean) => void; canDownload: boolean;
+  onToggleFav: (id: string, fav: boolean) => void; canDownload: boolean; watermarkUrl?: string | null;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
@@ -253,6 +262,12 @@ function PhotoTile({ photo, index, onClick, onToggleFav, canDownload }: {
             className="w-full block transition-transform duration-700 ease-out group-hover:scale-[1.025]" loading="lazy" />
         ) : (
           <div className="w-full aspect-[4/3] bg-white/[0.02] flex items-center justify-center"><Camera className="w-5 h-5 text-white/10" /></div>
+        )}
+        {/* Watermark overlay — photographer's logo */}
+        {watermarkUrl && imgSrc && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <img src={watermarkUrl} alt="" className="w-1/3 max-w-[120px] opacity-[0.35] select-none" draggable={false} />
+          </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
           <div className="absolute bottom-0 left-0 right-0 p-3 flex items-center gap-1.5">
@@ -302,6 +317,7 @@ export default function PublicGalleryPage() {
   const brandColor = brand?.brand_settings?.primary_color || '#C47D4A';
   const businessName = brand?.business_name || 'Gallery';
   const logoUrl = brand?.logo_url || null;
+  const showWatermark = (brand?.show_watermark ?? true) && !!logoUrl;
 
   useEffect(() => { loadGallery(); }, [slug]);
 
@@ -333,6 +349,7 @@ export default function PublicGalleryPage() {
             business_name: brandJson.business_name || prev?.business_name,
             brand_settings: brandJson.brand_settings || prev?.brand_settings || {},
             logo_url: brandJson.logo_url || null,
+            show_watermark: brandJson.show_watermark ?? true,
           }));
         }
       } catch {}
@@ -416,7 +433,7 @@ export default function PublicGalleryPage() {
 
   return (
     <div className="min-h-screen bg-night">
-      {lightboxPhoto && <Lightbox photo={lightboxPhoto} photos={displayPhotos} onClose={() => setLightboxPhoto(null)} onPrev={() => goLightbox(-1)} onNext={() => goLightbox(1)} onToggleFav={toggleFavorite} canDownload={canDownload} brandColor={brandColor} />}
+      {lightboxPhoto && <Lightbox photo={lightboxPhoto} photos={displayPhotos} onClose={() => setLightboxPhoto(null)} onPrev={() => goLightbox(-1)} onNext={() => goLightbox(1)} onToggleFav={toggleFavorite} canDownload={canDownload} brandColor={brandColor} watermarkUrl={showWatermark ? logoUrl : null} />}
 
       {/* ─── Full-bleed Hero Cover — Progressive Image Loading ─── */}
       <section className="relative h-[70vh] sm:h-[80vh] max-h-[900px] min-h-[480px] flex items-end overflow-hidden">
@@ -543,7 +560,7 @@ export default function PublicGalleryPage() {
               <div className={`${gridSize === 'large' ? 'columns-2 sm:columns-3 lg:columns-3' : 'columns-2 sm:columns-3 md:columns-4 lg:columns-4'} gap-2.5 sm:gap-3`}>
                 {group.photos.map((photo, i) => (
                   <div key={photo.id} className="mb-2.5 sm:mb-3">
-                    <PhotoTile photo={photo} index={i} onClick={() => setLightboxPhoto(photo)} onToggleFav={toggleFavorite} canDownload={canDownload} />
+                    <PhotoTile photo={photo} index={i} onClick={() => setLightboxPhoto(photo)} onToggleFav={toggleFavorite} canDownload={canDownload} watermarkUrl={showWatermark ? logoUrl : null} />
                   </div>
                 ))}
               </div>

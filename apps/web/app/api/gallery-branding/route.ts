@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
   try {
     const { data, error } = await supabaseAdmin
       .from('photographers')
-      .select('business_name, brand_settings')
+      .select('business_name, brand_settings, gallery_default_watermark')
       .eq('id', photographerId)
       .single();
 
@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
       business_name: data.business_name,
       brand_settings: data.brand_settings,
       logo_url: logoUrl,
+      show_watermark: (data as any).gallery_default_watermark ?? true,
     });
   } catch (err) {
     console.error('Gallery branding API error:', err);
