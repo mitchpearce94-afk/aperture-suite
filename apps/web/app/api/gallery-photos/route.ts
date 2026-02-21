@@ -120,16 +120,23 @@ export async function GET(request: NextRequest) {
     }
 
     // Collect all keys for batch signing
+    // Include edited_key and original_key as fallbacks so photos display
+    // even before the AI pipeline generates web/thumb versions
     const allKeys: string[] = [];
     for (const p of photos) {
       if (p.thumb_key) allKeys.push(p.thumb_key);
       if (p.web_key) allKeys.push(p.web_key);
+      if (p.edited_key) allKeys.push(p.edited_key);
+      if (p.original_key) allKeys.push(p.original_key);
     }
+
+    // Deduplicate keys
+    const uniqueKeys = [...new Set(allKeys)];
 
     const urlMap = new Map<string, string>();
     // Batch sign in groups of 100
-    for (let i = 0; i < allKeys.length; i += 100) {
-      const batch = allKeys.slice(i, i + 100);
+    for (let i = 0; i < uniqueKeys.length; i += 100) {
+      const batch = uniqueKeys.slice(i, i + 100);
       const { data: signedBatch } = await supabaseAdmin.storage
         .from('photos')
         .createSignedUrls(batch, SIGNED_URL_EXPIRY);
@@ -143,11 +150,16 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Attach URLs to photos
+    // Attach URLs to photos — cascade: web > edited > original for display, thumb for grid
     const photosWithUrls = photos.map((p) => ({
       ...p,
-      thumb_url: p.thumb_key ? urlMap.get(p.thumb_key) || null : null,
-      web_url: p.web_key ? urlMap.get(p.web_key) || null : null,
+      thumb_url: p.thumb_key ? urlMap.get(p.thumb_key) || null
+        : p.original_key ? urlMap.get(p.original_key) || null
+        : null,
+      web_url: p.web_key ? urlMap.get(p.web_key) || null
+        : p.edited_key ? urlMap.get(p.edited_key) || null
+        : p.original_key ? urlMap.get(p.original_key) || null
+        : null,
     }));
 
     return NextResponse.json({ photos: photosWithUrls });

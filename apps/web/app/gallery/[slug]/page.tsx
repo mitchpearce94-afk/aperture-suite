@@ -431,11 +431,11 @@ export default function PublicGalleryPage() {
         <div className="relative z-10 w-full max-w-7xl mx-auto px-6 sm:px-10 pb-12 sm:pb-16 text-center">
           <div className="flex items-center justify-center gap-2.5 mb-5 animate-fade-up" style={{ animationDelay: '0.1s', animationFillMode: 'both' }}>
             {logoUrl ? (
-              <img src={logoUrl} alt={businessName} className="h-12 max-w-[240px] object-contain opacity-90" />
+              <img src={logoUrl} alt={businessName} className="h-16 sm:h-20 max-w-[320px] object-contain opacity-90 drop-shadow-lg" />
             ) : (
               <>
-                <ApertureMark className="w-5 h-5" color={brandColor} />
-                <span className="text-[11px] font-sans font-medium uppercase tracking-[0.2em] text-white/45">{businessName}</span>
+                <ApertureMark className="w-6 h-6" color={brandColor} />
+                <span className="text-xs font-sans font-medium uppercase tracking-[0.2em] text-white/45">{businessName}</span>
               </>
             )}
           </div>
