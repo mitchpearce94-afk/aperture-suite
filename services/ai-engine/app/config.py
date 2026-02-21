@@ -103,7 +103,22 @@ class SupabaseClient:
         rows = r.json()
         return rows[0] if rows else None
 
-    def update(self, table: str, data: dict, filters: dict) -> Optional[dict]:
+    def update(self, table: str, data_or_id, data_or_filters: dict = None) -> Optional[dict]:
+        """
+        Update rows in a table. Supports two calling conventions:
+          1. update(table, data_dict, filters_dict)  — original style
+          2. update(table, row_id_string, data_dict)  — convenience style (auto-creates id filter)
+        """
+        if isinstance(data_or_id, str):
+            # Convention 2: update(table, row_id, data)
+            row_id = data_or_id
+            data = data_or_filters or {}
+            filters = {"id": f"eq.{row_id}"}
+        else:
+            # Convention 1: update(table, data, filters)
+            data = data_or_id
+            filters = data_or_filters or {}
+
         params = {}
         if filters:
             params.update(filters)

@@ -196,7 +196,7 @@ async def restyle_photo(request: RestyleRequest):
         result_bytes = buffer.tobytes()
 
         # Upload to edited location
-        edited_key = original_key.replace("uploads/", "edited/").rsplit(".", 1)[0] + ".jpg"
+        edited_key = original_key.replace("/originals/", "/edited/").rsplit(".", 1)[0] + ".jpg"
         upload_photo(edited_key, result_bytes, "image/jpeg")
 
         # Update photo record

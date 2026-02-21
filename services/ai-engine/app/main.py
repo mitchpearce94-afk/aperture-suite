@@ -58,7 +58,7 @@ async def restyle_photo(body: dict):
         return {"status": "error", "message": "Photo not found"}
 
     original_key = photo["original_key"]
-    edited_key = original_key.replace("uploads/", "edited/")
+    edited_key = original_key.replace("/originals/", "/edited/")
     if not edited_key.lower().endswith((".jpg", ".jpeg")):
         edited_key = edited_key.rsplit(".", 1)[0] + ".jpg"
 

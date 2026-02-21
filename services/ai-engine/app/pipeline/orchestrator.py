@@ -266,7 +266,7 @@ async def run_pipeline(
             batch_items = []
             for photo in photos:
                 if photo.get("original_key"):
-                    edited_key = photo["original_key"].replace("uploads/", "edited/")
+                    edited_key = photo["original_key"].replace("/originals/", "/edited/")
                     if not edited_key.lower().endswith((".jpg", ".jpeg")):
                         edited_key = edited_key.rsplit(".", 1)[0] + ".jpg"
                     batch_items.append({
