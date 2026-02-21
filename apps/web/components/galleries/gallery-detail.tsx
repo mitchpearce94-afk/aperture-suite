@@ -102,9 +102,9 @@ export function GalleryDetail({ gallery: initialGallery, onBack, onUpdate }: Gal
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [galleryPassword, setGalleryPassword] = useState('');
   const [passwordSaving, setPasswordSaving] = useState(false);
-  const [passwordSaved, setPasswordSaved] = useState(false);
   const [passwordSet, setPasswordSet] = useState(false);
   const [passwordChecking, setPasswordChecking] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false);
 
   const clientName = gallery.client
     ? `${gallery.client.first_name} ${gallery.client.last_name || ''}`.trim()
@@ -126,7 +126,7 @@ export function GalleryDetail({ gallery: initialGallery, onBack, onUpdate }: Gal
     loadGlobalDefaults();
   }, []);
 
-  // Check if password is already set for this gallery
+  // Check if password is already set for this gallery + load saved plaintext
   useEffect(() => {
     async function checkPassword() {
       if (globalAccessType !== 'password') return;
@@ -139,6 +139,20 @@ export function GalleryDetail({ gallery: initialGallery, onBack, onUpdate }: Gal
         });
         const data = await res.json();
         setPasswordSet(!!data.has_password);
+
+        // Load saved plaintext so photographer can view it later
+        if (data.has_password) {
+          const pwRes = await fetch('/api/gallery-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'get', gallery_id: gallery.id }),
+          });
+          const pwData = await pwRes.json();
+          if (pwData.password) {
+            setGalleryPassword(pwData.password);
+            setPasswordVisible(false); // Show masked by default
+          }
+        }
       } catch {}
       setPasswordChecking(false);
     }
@@ -189,6 +203,22 @@ export function GalleryDetail({ gallery: initialGallery, onBack, onUpdate }: Gal
       const merged = { ...gallery, ...updated };
       setGallery(merged);
       onUpdate?.(merged);
+
+      // Save password if access type is password and a password is entered
+      if (globalAccessType === 'password' && galleryPassword.trim()) {
+        try {
+          await fetch('/api/gallery-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'set', gallery_id: gallery.id, password: galleryPassword.trim() }),
+          });
+          setPasswordSet(true);
+          setPasswordVisible(false);
+        } catch (err) {
+          console.error('Failed to set password:', err);
+        }
+      }
+
       setSettingsSaved(true);
       setTimeout(() => setSettingsSaved(false), 2000);
     }
@@ -475,44 +505,35 @@ export function GalleryDetail({ gallery: initialGallery, onBack, onUpdate }: Gal
                   <span className="ml-2 text-red-400">✗ Required before delivery</span>
                 )}
               </label>
-              <div className="flex gap-2">
+              <div className="relative">
                 <input
-                  type="text"
+                  type={passwordVisible ? 'text' : 'password'}
                   value={galleryPassword}
-                  onChange={(e) => { setGalleryPassword(e.target.value); setPasswordSaved(false); }}
-                  placeholder={passwordSet ? 'Enter new password to change' : 'Set a password for this gallery'}
-                  className={`flex-1 px-3 py-1.5 text-xs rounded-lg bg-white/[0.04] border text-white placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-amber-500/50 ${
+                  onChange={(e) => setGalleryPassword(e.target.value)}
+                  placeholder={passwordSet ? '••••••••' : 'Set a password for this gallery'}
+                  className={`w-full px-3 py-1.5 pr-9 text-xs rounded-lg bg-white/[0.04] border text-white placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-amber-500/50 ${
                     !passwordSet && !galleryPassword.trim() ? 'border-red-500/30' : 'border-white/[0.08]'
                   }`}
                 />
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={!galleryPassword.trim() || passwordSaving}
-                  onClick={async () => {
-                    setPasswordSaving(true);
-                    try {
-                      const res = await fetch('/api/gallery-password', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'set', gallery_id: gallery.id, password: galleryPassword.trim() }),
-                      });
-                      const data = await res.json();
-                      if (data.success) {
-                        setPasswordSaved(true);
-                        setPasswordSet(true);
-                        setGalleryPassword('');
-                        setTimeout(() => setPasswordSaved(false), 3000);
-                      }
-                    } catch (err) {
-                      console.error('Failed to set password:', err);
-                    }
-                    setPasswordSaving(false);
-                  }}
-                >
-                  {passwordSaved ? <Check className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
-                  {passwordSaving ? 'Saving...' : passwordSaved ? 'Saved!' : 'Set'}
-                </Button>
+                {galleryPassword && (
+                  <button
+                    type="button"
+                    onClick={() => setPasswordVisible(!passwordVisible)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                  >
+                    {passwordVisible ? (
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                        <line x1="1" y1="1" x2="23" y2="23" />
+                      </svg>
+                    ) : (
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    )}
+                  </button>
+                )}
               </div>
               <p className="text-[10px] text-slate-600 mt-1">Share this password with your client so they can access their gallery.</p>
             </div>

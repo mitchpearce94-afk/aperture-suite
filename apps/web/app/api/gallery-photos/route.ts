@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Deduplicate keys
-    const uniqueKeys = [...new Set(allKeys)];
+    const uniqueKeys = Array.from(new Set(allKeys));
 
     const urlMap = new Map<string, string>();
     // Batch sign in groups of 100

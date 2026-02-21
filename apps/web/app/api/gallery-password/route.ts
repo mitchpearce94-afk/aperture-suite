@@ -44,13 +44,15 @@ export async function POST(request: NextRequest) {
 
     if (action === 'set') {
       // Set password — requires auth (service role or authenticated user)
+      // Store both hash (for verification) and plaintext (so photographer can view it later)
       const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      const updateData = { password_hash: hash, password_plain: password };
       if (!serviceKey) {
         // Fall back to anon client — RLS will enforce auth
         const sb = createAnonClient();
         const { error } = await sb
           .from('galleries')
-          .update({ password_hash: hash })
+          .update(updateData)
           .eq('id', gallery_id);
         if (error) {
           return NextResponse.json({ error: 'Failed to set password' }, { status: 500 });
@@ -62,13 +64,28 @@ export async function POST(request: NextRequest) {
         );
         const { error } = await sb
           .from('galleries')
-          .update({ password_hash: hash })
+          .update(updateData)
           .eq('id', gallery_id);
         if (error) {
           return NextResponse.json({ error: 'Failed to set password' }, { status: 500 });
         }
       }
       return NextResponse.json({ success: true });
+    }
+
+    if (action === 'get') {
+      // Get plaintext password — for photographer dashboard only (requires service role)
+      const sb = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      );
+      const { data: gallery } = await sb
+        .from('galleries')
+        .select('password_plain')
+        .eq('id', gallery_id)
+        .single();
+      
+      return NextResponse.json({ password: gallery?.password_plain || null });
     }
 
     if (action === 'verify') {
