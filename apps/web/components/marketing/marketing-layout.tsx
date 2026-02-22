@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 const navLinks = [
   { name: 'Features', href: '/features' },
   { name: 'Pricing', href: '/pricing' },
+  { name: 'Blog', href: '/blog' },
   { name: 'About', href: '/about' },
 ];
 
@@ -158,7 +159,7 @@ function Footer() {
       title: 'Company',
       links: [
         { name: 'About', href: '/about' },
-        { name: 'Blog', href: '#' },
+        { name: 'Blog', href: '/blog' },
         { name: 'Careers', href: '#' },
         { name: 'Contact', href: '#' },
       ],
