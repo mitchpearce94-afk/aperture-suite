@@ -93,8 +93,8 @@ The tradeoff: Apelier is in early access. The signup flow and payment system are
 
 ## The Key Comparison
 
-| | Aftershoot | Imagen | Apelier |
-|---|-----------|--------|---------|
+| Feature | Aftershoot | Imagen | Apelier |
+|---------|-----------|--------|---------|
 | Where it runs | Local (your laptop) | Cloud | Cloud |
 | Training images needed | 500-1,000 | 3,000-5,000 | **50** |
 | Multiple style profiles | ✅ | ✅ | ✅ |
