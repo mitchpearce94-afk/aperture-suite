@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { canProcessImages, type SubscriptionTier } from '@/lib/stripe';
 
 // AI Engine URL — Railway deployment or local dev
 const AI_ENGINE_URL = process.env.AI_ENGINE_URL || 'http://localhost:8000';
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,6 +20,41 @@ export async function POST(request: NextRequest) {
       if (!gallery_id) {
         return NextResponse.json({ error: 'Missing gallery_id' }, { status: 400 });
       }
+
+      // --- Tier gate: check if photographer can process more images ---
+      const { data: gallery } = await supabaseAdmin
+        .from('galleries')
+        .select('photographer_id')
+        .eq('id', gallery_id)
+        .single();
+
+      if (gallery?.photographer_id) {
+        const { data: photographer } = await supabaseAdmin
+          .from('photographers')
+          .select('subscription_tier, subscription_status, images_edited_count, trial_ends_at')
+          .eq('id', gallery.photographer_id)
+          .single();
+
+        if (photographer) {
+          const tierCheck = canProcessImages(
+            photographer.subscription_tier as SubscriptionTier,
+            photographer.subscription_status,
+            photographer.images_edited_count || 0,
+            photographer.trial_ends_at
+          );
+
+          if (!tierCheck.allowed) {
+            return NextResponse.json({
+              status: 'error',
+              error: 'tier_limit',
+              message: tierCheck.reason,
+              limit: tierCheck.limit,
+              used: tierCheck.used,
+            }, { status: 403 });
+          }
+        }
+      }
+      // --- End tier gate ---
 
       const response = await fetch(`${AI_ENGINE_URL}/api/process/gallery`, {
         method: 'POST',

@@ -14,6 +14,7 @@ import {
 import type { Photographer } from '@/lib/types';
 import { DEFAULT_CONTRACT } from '@/lib/default-contract';
 import { SignaturePad } from '@/components/ui/signature-pad';
+import BillingSection from '@/components/dashboard/billing-section';
 
 // ============================================
 // Types
@@ -74,6 +75,15 @@ const currencyOptions = [
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
+
+  // Read ?tab= from URL (e.g. after Stripe checkout redirect)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab') as SettingsTab | null;
+    if (tab && tabs.some((t) => t.id === tab)) {
+      setActiveTab(tab);
+    }
+  }, []);
   const [photographer, setPhotographer] = useState<Photographer | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -936,37 +946,8 @@ export default function SettingsPage() {
             <EditingStyleSection photographerId={photographer?.id} />
           )}
 
-          {activeTab === 'billing' && (
-            <div className="space-y-6">
-              <Section title="Current Plan" description="Manage your Apelier subscription.">
-                <div className="p-4 rounded-xl border border-indigo-500/20 bg-indigo-500/5">
-                  <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <h3 className="text-sm font-semibold text-white">Free Trial</h3>
-                      <p className="text-xs text-slate-500">14 days remaining</p>
-                    </div>
-                    <span className="text-xs px-2 py-1 rounded-full bg-indigo-500/20 text-indigo-300 font-medium">Trial</span>
-                  </div>
-                  <p className="text-xs text-slate-500 mb-3">Includes all features. No credit card required.</p>
-                  <Button size="sm">Upgrade Plan</Button>
-                </div>
-              </Section>
-
-              <Section title="Payment Method" description="Used for your subscription.">
-                <div className="rounded-xl border border-dashed border-white/[0.08] p-6 text-center">
-                  <CreditCard className="w-6 h-6 text-slate-700 mx-auto mb-2" />
-                  <p className="text-sm text-slate-500 mb-3">No payment method on file</p>
-                  <Button size="sm" variant="secondary" disabled>Add Payment Method</Button>
-                </div>
-              </Section>
-
-              <Section title="Stripe Connect" description="Connect your Stripe account to accept payments from clients.">
-                <div className="rounded-xl border border-dashed border-white/[0.08] p-6 text-center">
-                  <p className="text-sm text-slate-500 mb-3">Connect Stripe to send invoices and accept online payments</p>
-                  <Button size="sm" variant="secondary" disabled>Connect Stripe</Button>
-                </div>
-              </Section>
-            </div>
+          {activeTab === 'billing' && photographer && (
+            <BillingSection photographerId={photographer.id} />
           )}
         </div>
       </div>

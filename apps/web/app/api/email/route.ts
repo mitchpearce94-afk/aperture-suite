@@ -15,7 +15,7 @@ interface SendEmailRequest {
 // --- Email Templates ---
 
 function galleryDeliveryEmail(data: Record<string, string>) {
-  const { clientName, galleryTitle, galleryUrl, photographerName, businessName, brandColor = '#6366f1', photoCount, expiryDate } = data;
+  const { clientName, galleryTitle, galleryUrl, photographerName, businessName, brandColor = '#c47d4a', photoCount, expiryDate } = data;
   
   return {
     subject: `Your photos are ready! — ${galleryTitle}`,
@@ -68,7 +68,7 @@ function galleryDeliveryEmail(data: Record<string, string>) {
 }
 
 function bookingConfirmationEmail(data: Record<string, string>) {
-  const { clientName, jobTitle, jobDate, jobTime, location, photographerName, businessName, brandColor = '#6366f1' } = data;
+  const { clientName, jobTitle, jobDate, jobTime, location, photographerName, businessName, brandColor = '#c47d4a' } = data;
 
   return {
     subject: `Booking confirmed — ${jobTitle}`,
@@ -115,7 +115,7 @@ function bookingConfirmationEmail(data: Record<string, string>) {
 }
 
 function invoiceEmail(data: Record<string, string>) {
-  const { clientName, invoiceNumber, amount, dueDate, jobTitle, photographerName, businessName, brandColor = '#6366f1' } = data;
+  const { clientName, invoiceNumber, amount, dueDate, jobTitle, photographerName, businessName, brandColor = '#c47d4a' } = data;
 
   return {
     subject: `Invoice ${invoiceNumber} — ${businessName || photographerName}`,
@@ -155,7 +155,7 @@ function invoiceEmail(data: Record<string, string>) {
 }
 
 function contractSigningEmail(data: Record<string, string>) {
-  const { clientName, jobTitle, signingUrl, photographerName, businessName, brandColor = '#6366f1' } = data;
+  const { clientName, jobTitle, signingUrl, photographerName, businessName, brandColor = '#c47d4a' } = data;
 
   return {
     subject: `Contract ready to sign — ${jobTitle}`,
@@ -197,7 +197,7 @@ function contractSigningEmail(data: Record<string, string>) {
 }
 
 function reminderEmail(data: Record<string, string>) {
-  const { clientName, subject: subjectLine, message, photographerName, businessName, brandColor = '#6366f1' } = data;
+  const { clientName, subject: subjectLine, message, photographerName, businessName, brandColor = '#c47d4a' } = data;
 
   return {
     subject: subjectLine || `Reminder from ${businessName || photographerName}`,
