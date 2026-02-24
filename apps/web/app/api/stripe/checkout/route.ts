@@ -66,25 +66,6 @@ export async function POST(request: NextRequest) {
       },
     };
 
-    // If photographer is on free trial, give trial on subscription too
-    if (photographer?.subscription_tier === 'free_trial') {
-      // Calculate remaining trial days
-      const { data: fullPhotographer } = await supabaseAdmin
-        .from('photographers')
-        .select('trial_ends_at')
-        .eq('id', photographerId)
-        .single();
-
-      if (fullPhotographer?.trial_ends_at) {
-        const remaining = Math.max(0, Math.ceil(
-          (new Date(fullPhotographer.trial_ends_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-        ));
-        if (remaining > 0) {
-          sessionParams.subscription_data.trial_period_days = remaining;
-        }
-      }
-    }
-
     const session = await stripe.checkout.sessions.create(sessionParams);
 
     return NextResponse.json({ url: session.url });
