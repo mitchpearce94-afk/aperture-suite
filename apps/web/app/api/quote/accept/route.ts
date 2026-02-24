@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { DEFAULT_CONTRACT } from '@/lib/default-contract';
 
 function getServiceClient() {
   return createClient(
@@ -249,9 +250,7 @@ export async function POST(request: NextRequest) {
 
       // Contract — create immediately, delay the email
       try {
-        const DEFAULT_TEMPLATE = `# Photography Services Agreement\n\nThis agreement is between **{{business_name}}** ("Photographer") and **{{client_name}}** ("Client").\n\n## Session Details\n- **Date:** {{job_date}}\n- **Time:** {{job_time}}\n- **Location:** {{job_location}}\n- **Package:** {{package_name}} — {{package_amount}}\n\n## Terms\n1. The Client agrees to pay the total amount as outlined above.\n2. The Photographer retains copyright of all images.\n3. Either party may cancel with 14 days notice for a full refund.\n\n**Date:** {{today_date}}`;
-
-        const template = photographer.contract_template || DEFAULT_TEMPLATE;
+        const template = photographer.contract_template || DEFAULT_CONTRACT;
         const today = new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
         const formatAUD = (amt: number) => new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD', minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(amt);
 

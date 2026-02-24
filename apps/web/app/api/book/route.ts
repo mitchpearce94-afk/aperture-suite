@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { DEFAULT_CONTRACT } from '@/lib/default-contract';
 
 // Service role client — bypasses RLS for creating records on behalf of the photographer
 function getServiceClient() {
@@ -326,9 +327,7 @@ export async function POST(request: NextRequest) {
         // Auto-create contract (if job was created) — contract is created immediately, email is delayed
         if (jobId) {
           try {
-            const DEFAULT_CONTRACT_TEMPLATE = `# Photography Services Agreement\n\nThis agreement is between **{{business_name}}** ("Photographer") and **{{client_name}}** ("Client").\n\n## Session Details\n- **Date:** {{job_date}}\n- **Time:** {{job_time}}\n- **Location:** {{job_location}}\n- **Package:** {{package_name}} — {{package_amount}}\n- **Included images:** {{included_images}}\n\n## Terms\n1. The Client agrees to pay the total amount as outlined above.\n2. The Photographer retains copyright of all images.\n3. Either party may cancel with 14 days notice for a full refund.\n\n**Date:** {{today_date}}`;
-
-            const template = photographer.contract_template || DEFAULT_CONTRACT_TEMPLATE;
+            const template = photographer.contract_template || DEFAULT_CONTRACT;
 
             const { data: clientData } = await sb
               .from('clients')
