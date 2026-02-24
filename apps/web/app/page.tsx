@@ -332,53 +332,24 @@ function BeforeAfterSlider() {
         {/* Slider container */}
         <div
           ref={containerRef}
-          className="relative max-w-3xl mx-auto rounded-2xl overflow-hidden border border-white/[0.08] shadow-2xl shadow-black/40 select-none touch-none cursor-col-resize"
-          style={{ aspectRatio: '3 / 2' }}
+          className="relative max-w-md mx-auto rounded-2xl overflow-hidden border border-white/[0.08] shadow-2xl shadow-black/40 select-none touch-none cursor-col-resize"
+          style={{ aspectRatio: '683 / 1024' }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
         >
-          {/* "After" (edited) — full background */}
-          <div className="absolute inset-0" style={{
-            background: `
-              linear-gradient(135deg, #1a0f08 0%, #2d1810 15%, #4a2818 30%, #6b3a1f 45%, #8b5e3c 55%, #c47d4a 65%, #d4a574 75%, #e8c9a0 85%, #f5e6d0 95%),
-              radial-gradient(ellipse at 30% 60%, rgba(196,125,74,0.4) 0%, transparent 60%),
-              radial-gradient(ellipse at 70% 40%, rgba(212,165,116,0.3) 0%, transparent 50%)
-            `,
-            backgroundBlendMode: 'overlay',
-          }}>
-            {/* Simulated warm edited photo elements */}
-            <div className="absolute inset-0 flex items-end justify-center pb-8">
-              <div className="w-32 h-44 md:w-40 md:h-56 rounded-xl bg-gradient-to-b from-brand-200/30 to-brand-600/20 border border-brand-400/10 backdrop-blur-sm" />
-            </div>
-            <div className="absolute top-6 left-6 w-20 h-12 rounded-lg bg-brand-400/10 backdrop-blur-sm" />
-            <div className="absolute top-1/4 right-1/4 w-16 h-16 rounded-full bg-brand-300/15" />
-            {/* Warm light leak overlay */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-brand-500/[0.05] to-brand-300/[0.08]" />
+          {/* "After" (edited) — real photo */}
+          <div className="absolute inset-0">
+            <img src="/images/after-sample.jpg" alt="Edited photo" className="w-full h-full object-cover" draggable={false} />
           </div>
 
           {/* "Before" (RAW) — clipped by slider position */}
           <div
             className="absolute inset-0"
-            style={{
-              clipPath: `inset(0 ${100 - position}% 0 0)`,
-              background: `
-                linear-gradient(135deg, #1a1a1e 0%, #2a2a2e 15%, #3a3a3e 30%, #4a4a4e 45%, #5a5a5e 55%, #6a6a6e 65%, #7a7a7e 75%, #9a9a9e 85%, #bababe 95%),
-                radial-gradient(ellipse at 30% 60%, rgba(100,100,110,0.4) 0%, transparent 60%),
-                radial-gradient(ellipse at 70% 40%, rgba(140,140,150,0.3) 0%, transparent 50%)
-              `,
-              backgroundBlendMode: 'overlay',
-            }}
+            style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}
           >
-            {/* Same composition but desaturated / flat */}
-            <div className="absolute inset-0 flex items-end justify-center pb-8">
-              <div className="w-32 h-44 md:w-40 md:h-56 rounded-xl bg-gradient-to-b from-gray-400/20 to-gray-600/15 border border-gray-500/10 backdrop-blur-sm" />
-            </div>
-            <div className="absolute top-6 left-6 w-20 h-12 rounded-lg bg-gray-500/10 backdrop-blur-sm" />
-            <div className="absolute top-1/4 right-1/4 w-16 h-16 rounded-full bg-gray-400/10" />
-            {/* Flat / slightly cool overlay */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-slate-500/[0.03] to-blue-900/[0.05]" />
+            <img src="/images/before-sample.jpg" alt="RAW unedited photo" className="w-full h-full object-cover" draggable={false} />
           </div>
 
           {/* Divider line + handle */}
@@ -408,7 +379,7 @@ function BeforeAfterSlider() {
         </div>
 
         <p className="text-center text-xs font-body text-dark-warm mt-6">
-          This is a simulated preview. With Apelier, your actual RAW photos get this treatment — using your trained editing style.
+          Real before &amp; after. With Apelier, your RAW photos get this treatment — using your trained editing style.
         </p>
       </div>
     </Section>
