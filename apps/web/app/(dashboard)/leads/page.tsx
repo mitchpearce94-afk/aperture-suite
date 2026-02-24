@@ -423,17 +423,18 @@ export default function LeadsPage() {
               />
             )}
           </div>
-          <Select name="job_type" label="Job Type" options={jobTypeOptions} />
+          <Select name="job_type" label="Job Type" options={jobTypeOptions} required />
 
           {/* Package interest */}
           {packages.length > 0 && (
             <Select
               name="interested_package"
-              label="Interested Package"
+              label="Package"
               value={selectedPackage}
               onChange={(e) => setSelectedPackage(e.target.value)}
+              required
               options={[
-                { value: '', label: 'Select package (optional)...' },
+                { value: '', label: 'Select package...' },
                 ...packages.map((pkg) => ({
                   value: pkg.id,
                   label: `${pkg.name} — ${formatCurrency(pkg.price)} · ${pkg.included_images} images`,
