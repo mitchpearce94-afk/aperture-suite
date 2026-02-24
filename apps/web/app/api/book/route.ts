@@ -292,7 +292,10 @@ export async function POST(request: NextRequest) {
           }),
         });
 
-        // Send invoice email (if invoice was created)
+        // Build delayed emails array (sent 30s after booking confirmation)
+        const delayedEmails: any[] = [];
+
+        // Invoice email (if invoice was created)
         if (event.auto_create_invoice && jobId && packageAmount && packageAmount > 0) {
           const requiresDeposit = pkg?.require_deposit ?? false;
           const depositPercent = pkg?.deposit_percent ?? 25;
@@ -304,34 +307,29 @@ export async function POST(request: NextRequest) {
           const jobNum = String(jobNumber || 0).padStart(4, '0');
           const invoiceNum = requiresDeposit ? `INV-${jobNum}-DEP` : `INV-${jobNum}`;
 
-          await fetch(`${request.nextUrl.origin}/api/email`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              template: 'invoice',
-              to: email,
-              data: {
-                clientName: name.split(' ')[0],
-                invoiceNumber: invoiceNum,
-                amount: new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(totalAmount),
-                dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' }),
-                jobTitle: event.title || 'Photography Session',
-                photographerName,
-                businessName,
-                brandColor,
-              },
-            }),
+          delayedEmails.push({
+            template: 'invoice',
+            to: email,
+            data: {
+              clientName: name.split(' ')[0],
+              invoiceNumber: invoiceNum,
+              amount: new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(totalAmount),
+              dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' }),
+              jobTitle: event.title || 'Photography Session',
+              photographerName,
+              businessName,
+              brandColor,
+            },
           });
         }
 
-        // Auto-create and send contract (if job was created)
+        // Auto-create contract (if job was created) — contract is created immediately, email is delayed
         if (jobId) {
           try {
             const DEFAULT_CONTRACT_TEMPLATE = `# Photography Services Agreement\n\nThis agreement is between **{{business_name}}** ("Photographer") and **{{client_name}}** ("Client").\n\n## Session Details\n- **Date:** {{job_date}}\n- **Time:** {{job_time}}\n- **Location:** {{job_location}}\n- **Package:** {{package_name}} — {{package_amount}}\n- **Included images:** {{included_images}}\n\n## Terms\n1. The Client agrees to pay the total amount as outlined above.\n2. The Photographer retains copyright of all images.\n3. Either party may cancel with 14 days notice for a full refund.\n\n**Date:** {{today_date}}`;
 
             const template = photographer.contract_template || DEFAULT_CONTRACT_TEMPLATE;
 
-            // Get client data for merge tags
             const { data: clientData } = await sb
               .from('clients')
               .select('first_name, last_name, email')
@@ -345,7 +343,6 @@ export async function POST(request: NextRequest) {
             const today = new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
             const jobDate = slot.date ? new Date(slot.date).toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : 'TBC';
 
-            // Look up package deposit settings
             let requireDeposit = false;
             let depositPct = 25;
             if (pkg) {
@@ -357,7 +354,6 @@ export async function POST(request: NextRequest) {
 
             const formatAUD = (amt: number) => new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD', minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(amt);
 
-            // Fill merge tags
             let content = template
               .replace(/\{\{client_name\}\}/g, clientFullName)
               .replace(/\{\{client_email\}\}/g, email)
@@ -374,7 +370,6 @@ export async function POST(request: NextRequest) {
               .replace(/\{\{deposit_percent\}\}/g, String(depositPct))
               .replace(/\{\{final_amount\}\}/g, formatAUD(finalAmt));
 
-            // Process conditionals
             const conditions: Record<string, boolean> = {
               deposit: requireDeposit,
               no_deposit: !requireDeposit,
@@ -387,7 +382,6 @@ export async function POST(request: NextRequest) {
             }
             content = content.replace(/\n{3,}/g, '\n\n');
 
-            // Create contract record
             const { data: contract } = await sb
               .from('contracts')
               .insert({
@@ -405,35 +399,36 @@ export async function POST(request: NextRequest) {
               .select('id, signing_token')
               .single();
 
-            // Send contract signing email
             if (contract?.signing_token) {
-              const signingUrl = `${request.nextUrl.origin}/sign/${contract.signing_token}`;
-              await fetch(`${request.nextUrl.origin}/api/email`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  template: 'contract_signing',
-                  to: email,
-                  data: {
-                    clientName: name.split(' ')[0],
-                    jobTitle: event.title || 'Photography Session',
-                    signingUrl,
-                    photographerName,
-                    businessName,
-                    brandColor,
-                  },
-                }),
+              delayedEmails.push({
+                template: 'contract_signing',
+                to: email,
+                data: {
+                  clientName: name.split(' ')[0],
+                  jobTitle: event.title || 'Photography Session',
+                  signingUrl: `${request.nextUrl.origin}/sign/${contract.signing_token}`,
+                  photographerName,
+                  businessName,
+                  brandColor,
+                },
               });
             }
           } catch (contractErr) {
-            console.error('Failed to create/send contract:', contractErr);
-            // Don't fail the booking if contract creation fails
+            console.error('Failed to create contract:', contractErr);
           }
+        }
+
+        // Fire off delayed emails (30s after booking confirmation) — fire and forget
+        if (delayedEmails.length > 0) {
+          fetch(`${request.nextUrl.origin}/api/send-followup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ emails: delayedEmails, delaySeconds: 30 }),
+          }).catch((err) => console.error('Failed to trigger delayed emails:', err));
         }
       }
     } catch (emailErr) {
       console.error('Failed to send booking emails:', emailErr);
-      // Don't fail the booking if emails fail
     }
 
     return NextResponse.json({

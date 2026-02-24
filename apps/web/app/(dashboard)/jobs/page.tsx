@@ -275,25 +275,17 @@ export default function JobsPage() {
         }
       }
 
-      // Send booking confirmation + invoice emails
+      // Send booking confirmation + delayed invoice/contract emails
       if (photographer) {
         const client = clients.find((c) => c.id === newJob.client_id);
 
-        // Auto-generate contract and send signing email
+        // Auto-generate contract immediately (but delay the email)
+        let contractSigningUrl: string | null = null;
         if (newJob.client_id) {
           try {
             const contract = await generateContract(newJob.id);
-            if (contract && client?.email) {
-              const signingUrl = `${window.location.origin}/sign/${contract.signing_token}`;
-              sendContractSigningEmail({
-                to: client.email,
-                clientName: [client.first_name, client.last_name].filter(Boolean).join(' '),
-                jobTitle: newJob.title || newJob.job_type || 'Photography Session',
-                signingUrl,
-                photographerName: photographer.name || '',
-                businessName: photographer.business_name || photographer.name || '',
-                brandColor: photographer.brand_settings?.primary_color || '#b8860b',
-              }).catch((err) => console.error('Failed to send contract email:', err));
+            if (contract?.signing_token) {
+              contractSigningUrl = `${window.location.origin}/sign/${contract.signing_token}`;
             }
           } catch (err) {
             console.error('Failed to auto-generate contract:', err);
@@ -302,10 +294,10 @@ export default function JobsPage() {
 
         if (client?.email) {
           const clientName = [client.first_name, client.last_name].filter(Boolean).join(' ');
-          const brandColor = photographer.brand_settings?.primary_color || '#b8860b';
+          const brandColor = photographer.brand_settings?.primary_color || '#c47d4a';
           const bizName = photographer.business_name || photographer.name || '';
 
-          // Booking confirmation email
+          // Booking confirmation email — sent immediately
           sendBookingConfirmationEmail({
             to: client.email,
             clientName,
@@ -318,30 +310,46 @@ export default function JobsPage() {
             brandColor,
           }).catch((err) => console.error('Failed to send booking email:', err));
 
-          // Invoice email (for deposit invoice if created as 'sent')
-          if (newJob.package_amount && newJob.package_amount > 0) {
-            const jobNum = String(newJob.job_number || 0).padStart(4, '0');
-            const pkg = packages.find((p) => p.name === (addFormPackageName || newJob.package_name));
-            const requiresDeposit = pkg?.require_deposit ?? false;
-            const invoiceNum = requiresDeposit ? `INV-${jobNum}-DEP` : `INV-${jobNum}`;
-            const invoiceAmount = requiresDeposit
-              ? Math.round(Number(newJob.package_amount) * ((pkg?.deposit_percent ?? 25) / 100) * 100) / 100
-              : Number(newJob.package_amount);
-            const gst = 10;
-            const invoiceTotal = Math.round((invoiceAmount + invoiceAmount * (gst / 100)) * 100) / 100;
+          // Delayed emails — invoice + contract sent 30s later
+          setTimeout(() => {
+            // Invoice email
+            if (newJob.package_amount && newJob.package_amount > 0) {
+              const jobNum = String(newJob.job_number || 0).padStart(4, '0');
+              const pkg = packages.find((p) => p.name === (addFormPackageName || newJob.package_name));
+              const requiresDeposit = pkg?.require_deposit ?? false;
+              const invoiceNum = requiresDeposit ? `INV-${jobNum}-DEP` : `INV-${jobNum}`;
+              const invoiceAmount = requiresDeposit
+                ? Math.round(Number(newJob.package_amount) * ((pkg?.deposit_percent ?? 25) / 100) * 100) / 100
+                : Number(newJob.package_amount);
+              const gst = 10;
+              const invoiceTotal = Math.round((invoiceAmount + invoiceAmount * (gst / 100)) * 100) / 100;
 
-            sendInvoiceEmail({
-              to: client.email,
-              clientName,
-              invoiceNumber: invoiceNum,
-              amount: formatCurrency(invoiceTotal),
-              dueDate: new Date(Date.now() + 14 * 86400000).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' }),
-              jobTitle: newJob.title || newJob.job_type || 'Photography Session',
-              photographerName: photographer.name || '',
-              businessName: bizName,
-              brandColor,
-            }).catch((err) => console.error('Failed to send invoice email:', err));
-          }
+              sendInvoiceEmail({
+                to: client.email,
+                clientName,
+                invoiceNumber: invoiceNum,
+                amount: formatCurrency(invoiceTotal),
+                dueDate: new Date(Date.now() + 14 * 86400000).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' }),
+                jobTitle: newJob.title || newJob.job_type || 'Photography Session',
+                photographerName: photographer.name || '',
+                businessName: bizName,
+                brandColor,
+              }).catch((err) => console.error('Failed to send invoice email:', err));
+            }
+
+            // Contract signing email
+            if (contractSigningUrl) {
+              sendContractSigningEmail({
+                to: client.email,
+                clientName,
+                jobTitle: newJob.title || newJob.job_type || 'Photography Session',
+                signingUrl: contractSigningUrl,
+                photographerName: photographer.name || '',
+                businessName: bizName,
+                brandColor,
+              }).catch((err) => console.error('Failed to send contract email:', err));
+            }
+          }, 30000); // 30 seconds
         }
       }
 

@@ -216,6 +216,9 @@ export async function POST(request: NextRequest) {
         }),
       });
 
+      // Build delayed emails (sent 30s after booking confirmation)
+      const delayedEmails: any[] = [];
+
       // Invoice email
       if (packageAmount > 0) {
         const requiresDeposit = pkg?.require_deposit ?? false;
@@ -228,27 +231,23 @@ export async function POST(request: NextRequest) {
         const jobNum = String(jobNumber).padStart(4, '0');
         const invoiceNum = requiresDeposit ? `INV-${jobNum}-DEP` : `INV-${jobNum}`;
 
-        await fetch(`${origin}/api/email`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            template: 'invoice',
-            to: clientEmail,
-            data: {
-              clientName: client?.first_name || clientName.split(' ')[0],
-              invoiceNumber: invoiceNum,
-              amount: new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(totalAmt),
-              dueDate: new Date(Date.now() + 14 * 86400000).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' }),
-              jobTitle: packageName,
-              photographerName,
-              businessName,
-              brandColor,
-            },
-          }),
+        delayedEmails.push({
+          template: 'invoice',
+          to: clientEmail,
+          data: {
+            clientName: client?.first_name || clientName.split(' ')[0],
+            invoiceNumber: invoiceNum,
+            amount: new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(totalAmt),
+            dueDate: new Date(Date.now() + 14 * 86400000).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' }),
+            jobTitle: packageName,
+            photographerName,
+            businessName,
+            brandColor,
+          },
         });
       }
 
-      // Contract
+      // Contract — create immediately, delay the email
       try {
         const DEFAULT_TEMPLATE = `# Photography Services Agreement\n\nThis agreement is between **{{business_name}}** ("Photographer") and **{{client_name}}** ("Client").\n\n## Session Details\n- **Date:** {{job_date}}\n- **Time:** {{job_time}}\n- **Location:** {{job_location}}\n- **Package:** {{package_name}} — {{package_amount}}\n\n## Terms\n1. The Client agrees to pay the total amount as outlined above.\n2. The Photographer retains copyright of all images.\n3. Either party may cancel with 14 days notice for a full refund.\n\n**Date:** {{today_date}}`;
 
@@ -272,7 +271,6 @@ export async function POST(request: NextRequest) {
           .replace(/\{\{deposit_percent\}\}/g, '0')
           .replace(/\{\{final_amount\}\}/g, formatAUD(packageAmount));
 
-        // Remove conditional blocks
         content = content.replace(/\{\{#if \w+\}\}[\s\S]*?\{\{\/if\}\}/g, '');
         content = content.replace(/\n{3,}/g, '\n\n');
 
@@ -294,25 +292,30 @@ export async function POST(request: NextRequest) {
           .single();
 
         if (contract?.signing_token) {
-          await fetch(`${origin}/api/email`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              template: 'contract_signing',
-              to: clientEmail,
-              data: {
-                clientName: client?.first_name || clientName.split(' ')[0],
-                jobTitle: packageName,
-                signingUrl: `${origin}/sign/${contract.signing_token}`,
-                photographerName,
-                businessName,
-                brandColor,
-              },
-            }),
+          delayedEmails.push({
+            template: 'contract_signing',
+            to: clientEmail,
+            data: {
+              clientName: client?.first_name || clientName.split(' ')[0],
+              jobTitle: packageName,
+              signingUrl: `${origin}/sign/${contract.signing_token}`,
+              photographerName,
+              businessName,
+              brandColor,
+            },
           });
         }
       } catch (err) {
         console.error('Contract creation failed:', err);
+      }
+
+      // Fire off delayed emails (30s after booking confirmation)
+      if (delayedEmails.length > 0) {
+        fetch(`${origin}/api/send-followup`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ emails: delayedEmails, delaySeconds: 30 }),
+        }).catch((err) => console.error('Failed to trigger delayed emails:', err));
       }
     }
 
