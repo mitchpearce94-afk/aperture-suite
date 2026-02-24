@@ -278,7 +278,7 @@ export async function POST(request: NextRequest) {
     try {
       const { data: photographer } = await sb
         .from('photographers')
-        .select('name, business_name, brand_settings, contract_template, signature_image')
+        .select('name, business_name, brand_settings, contract_template, signature_image, phone, email, website, payment_details')
         .eq('id', photographerId)
         .single();
 
@@ -286,6 +286,25 @@ export async function POST(request: NextRequest) {
         const brandColor = photographer.brand_settings?.primary_color || '#c47d4a';
         const businessName = photographer.business_name || photographer.name || '';
         const photographerName = photographer.name || '';
+        const pd = photographer.payment_details || {};
+
+        // Shared brand data passed to all email templates
+        const brandData: Record<string, string> = {
+          photographerName,
+          businessName,
+          brandColor,
+          logoUrl: photographer.brand_settings?.logo_url || '',
+          phone: photographer.phone || '',
+          contactEmail: photographer.email || '',
+          website: photographer.website || '',
+          bankName: pd.bank_name || '',
+          accountName: pd.account_name || '',
+          bsb: pd.bsb || '',
+          accountNumber: pd.account_number || '',
+          payidEmail: pd.payid_email || '',
+          payidPhone: pd.payid_phone || '',
+          paymentInstructions: pd.payment_instructions || '',
+        };
 
         // Send booking confirmation email
         await fetch(`${request.nextUrl.origin}/api/email`, {
@@ -295,14 +314,12 @@ export async function POST(request: NextRequest) {
             template: 'booking_confirmation',
             to: email,
             data: {
+              ...brandData,
               clientName: name.split(' ')[0],
               jobTitle: event.title || 'Photography Session',
               jobDate: slot.date ? new Date(slot.date).toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '',
               jobTime: slot.start_time || '',
               location: event.location || '',
-              photographerName,
-              businessName,
-              brandColor,
             },
           }),
         });
@@ -326,14 +343,12 @@ export async function POST(request: NextRequest) {
             template: 'invoice',
             to: email,
             data: {
+              ...brandData,
               clientName: name.split(' ')[0],
               invoiceNumber: invoiceNum,
               amount: new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(totalAmount),
               dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' }),
               jobTitle: event.title || 'Photography Session',
-              photographerName,
-              businessName,
-              brandColor,
             },
           });
         }
@@ -417,12 +432,10 @@ export async function POST(request: NextRequest) {
                 template: 'contract_signing',
                 to: email,
                 data: {
+                  ...brandData,
                   clientName: name.split(' ')[0],
                   jobTitle: event.title || 'Photography Session',
                   signingUrl: `${request.nextUrl.origin}/sign/${contract.signing_token}`,
-                  photographerName,
-                  businessName,
-                  brandColor,
                 },
               });
             }
