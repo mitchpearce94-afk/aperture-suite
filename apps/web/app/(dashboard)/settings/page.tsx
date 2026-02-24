@@ -122,6 +122,17 @@ export default function SettingsPage() {
     gallery_default_download_web: true,
     custom_domain: '',
   });
+
+  // Payment Details
+  const [paymentForm, setPaymentForm] = useState({
+    bank_name: '',
+    account_name: '',
+    bsb: '',
+    account_number: '',
+    payid_email: '',
+    payid_phone: '',
+    payment_instructions: '',
+  });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
@@ -210,6 +221,17 @@ export default function SettingsPage() {
       setContractTemplate(p.contract_template || DEFAULT_CONTRACT);
       // Load signature
       setSignatureImage(p.signature_image || null);
+      // Load payment details
+      const pd = (p as any).payment_details || {};
+      setPaymentForm({
+        bank_name: pd.bank_name || '',
+        account_name: pd.account_name || '',
+        bsb: pd.bsb || '',
+        account_number: pd.account_number || '',
+        payid_email: pd.payid_email || '',
+        payid_phone: pd.payid_phone || '',
+        payment_instructions: pd.payment_instructions || '',
+      });
     }
     setLoading(false);
   }
@@ -296,6 +318,7 @@ export default function SettingsPage() {
     updatePayload.website = profileForm.website;
     updatePayload.instagram = profileForm.instagram;
     updatePayload.abn = profileForm.abn;
+    updatePayload.payment_details = paymentForm;
 
     const { error } = await sb
       .from('photographers')
@@ -594,6 +617,28 @@ export default function SettingsPage() {
                     </div>
                     {logoUploading && <p className="text-[10px] text-amber-400">Uploading...</p>}
                   </div>
+                </div>
+              </Section>
+
+              <Section title="Payment Details" description="Shown on invoices so clients know how to pay you.">
+                <div className="space-y-4">
+                  <p className="text-xs text-slate-500 -mt-1">Bank Transfer</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Input label="Bank Name" placeholder="Commonwealth Bank" value={paymentForm.bank_name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPaymentForm((f) => ({ ...f, bank_name: e.target.value }))} />
+                    <Input label="Account Name" placeholder="Jane Smith Photography" value={paymentForm.account_name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPaymentForm((f) => ({ ...f, account_name: e.target.value }))} />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Input label="BSB" placeholder="064-000" value={paymentForm.bsb} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPaymentForm((f) => ({ ...f, bsb: e.target.value }))} />
+                    <Input label="Account Number" placeholder="12345678" value={paymentForm.account_number} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPaymentForm((f) => ({ ...f, account_number: e.target.value }))} />
+                  </div>
+                  <div className="border-t border-white/[0.04] pt-4 mt-4">
+                    <p className="text-xs text-slate-500 mb-3">PayID (optional)</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <Input label="PayID Email" placeholder="hello@yourbusiness.com.au" value={paymentForm.payid_email} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPaymentForm((f) => ({ ...f, payid_email: e.target.value }))} />
+                      <Input label="PayID Phone" placeholder="0412 345 678" value={paymentForm.payid_phone} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPaymentForm((f) => ({ ...f, payid_phone: e.target.value }))} />
+                    </div>
+                  </div>
+                  <Textarea label="Payment Instructions" placeholder="Please include invoice number as payment reference" value={paymentForm.payment_instructions} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setPaymentForm((f) => ({ ...f, payment_instructions: e.target.value }))} />
                 </div>
               </Section>
 
