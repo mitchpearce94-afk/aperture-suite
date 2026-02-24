@@ -190,7 +190,15 @@ export function PhotoUpload({ onUploadComplete }: PhotoUploadProps) {
         try {
           const processRes = await fetch('/api/process', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'process', gallery_id: gallery.id, style_profile_id: selectedStyleId || null, included_images: selectedJob.included_images || null }) });
           const processResult = await processRes.json();
-          if (!processRes.ok || processResult.status === 'error') setProcessingError(processResult.message || processResult.error || 'Failed to start processing');
+          if (!processRes.ok || processResult.status === 'error') {
+            const isTierLimit = processResult.error === 'tier_limit' || processRes.status === 403;
+            if (isTierLimit) {
+              setProcessingError(`${processResult.message || 'Edit limit reached.'} Go to Settings → Billing to upgrade your plan.`);
+              setUploading(false);
+              return; // Don't call onUploadComplete — keep the error visible
+            }
+            setProcessingError(processResult.message || processResult.error || 'Failed to start processing');
+          }
         } catch { setProcessingError('AI Engine not reachable. Start it locally or check Railway deployment.'); }
       }
       setExistingPhotoCount((prev) => prev + files.filter((f) => f.status === 'complete').length);
@@ -414,12 +422,28 @@ export function PhotoUpload({ onUploadComplete }: PhotoUploadProps) {
             </div>
           )}
           {processingError && (
-            <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+            <div className={`rounded-lg border p-3 flex items-start gap-2 ${
+              processingError.includes('Billing') 
+                ? 'border-red-500/30 bg-red-500/5' 
+                : 'border-amber-500/20 bg-amber-500/5'
+            }`}>
+              <AlertCircle className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
+                processingError.includes('Billing') ? 'text-red-400' : 'text-amber-400'
+              }`} />
               <div>
-                <p className="text-xs text-amber-300 font-medium">AI processing could not start</p>
+                <p className={`text-xs font-medium ${
+                  processingError.includes('Billing') ? 'text-red-300' : 'text-amber-300'
+                }`}>
+                  {processingError.includes('Billing') ? 'Edit limit reached' : 'AI processing could not start'}
+                </p>
                 <p className="text-[11px] text-amber-400/60 mt-0.5">{processingError}</p>
-                <p className="text-[10px] text-amber-500/50 mt-1">Photos uploaded successfully — you can trigger processing manually later from the Processing Queue.</p>
+                {processingError.includes('Billing') ? (
+                  <a href="/settings?tab=billing" className="inline-block mt-2 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-xs font-semibold text-white transition-colors">
+                    Upgrade Plan
+                  </a>
+                ) : (
+                  <p className="text-[10px] text-amber-500/50 mt-1">Photos uploaded successfully — you can trigger processing manually later from the Processing Queue.</p>
+                )}
               </div>
             </div>
           )}
