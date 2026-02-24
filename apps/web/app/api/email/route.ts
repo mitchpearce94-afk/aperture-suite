@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 // Resend API endpoint
 const RESEND_API = 'https://api.resend.com/emails';
 
-type EmailTemplate = 'gallery_delivery' | 'booking_confirmation' | 'invoice' | 'contract_signing' | 'reminder';
+type EmailTemplate = 'gallery_delivery' | 'booking_confirmation' | 'invoice' | 'contract_signing' | 'reminder' | 'quote';
 
 interface SendEmailRequest {
   template: EmailTemplate;
@@ -228,6 +228,60 @@ function reminderEmail(data: Record<string, string>) {
   };
 }
 
+function quoteEmail(data: Record<string, string>) {
+  const { clientName, packageName, amount, includedImages, jobDate, location, photographerName, businessName, brandColor = '#c47d4a', acceptUrl } = data;
+
+  return {
+    subject: `Your photography quote — ${businessName || photographerName}`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <div style="max-width:560px;margin:0 auto;padding:40px 20px;">
+    <div style="text-align:center;margin-bottom:32px;">
+      <div style="width:48px;height:48px;border-radius:50%;background-color:${brandColor};display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:18px;">
+        ${(businessName || photographerName || 'A').charAt(0)}
+      </div>
+      <p style="margin:8px 0 0;font-size:13px;color:#9ca3af;">${businessName || photographerName}</p>
+    </div>
+
+    <div style="background:#fff;border-radius:16px;padding:32px;border:1px solid #f3f4f6;">
+      <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#111827;">Hi ${clientName}!</h1>
+      <p style="margin:0 0 24px;font-size:15px;color:#6b7280;line-height:1.6;">
+        Thanks for your enquiry! Here's a quote for your photography session.
+      </p>
+
+      <div style="background:#f9fafb;border-radius:12px;padding:20px;margin-bottom:24px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr><td style="padding:8px 0;font-size:13px;color:#9ca3af;">Package</td><td style="padding:8px 0;font-size:14px;color:#374151;font-weight:600;text-align:right;">${packageName}</td></tr>
+          ${amount ? `<tr><td style="padding:8px 0;font-size:13px;color:#9ca3af;">Total</td><td style="padding:8px 0;font-size:20px;color:#111827;font-weight:700;text-align:right;">${amount}</td></tr>` : ''}
+          ${includedImages ? `<tr><td style="padding:8px 0;font-size:13px;color:#9ca3af;">Included Images</td><td style="padding:8px 0;font-size:14px;color:#374151;text-align:right;">${includedImages}</td></tr>` : ''}
+          ${jobDate ? `<tr><td style="padding:8px 0;font-size:13px;color:#9ca3af;">Date</td><td style="padding:8px 0;font-size:14px;color:#374151;text-align:right;">${jobDate}</td></tr>` : ''}
+          ${location ? `<tr><td style="padding:8px 0;font-size:13px;color:#9ca3af;">Location</td><td style="padding:8px 0;font-size:14px;color:#374151;text-align:right;">${location}</td></tr>` : ''}
+        </table>
+      </div>
+
+      <div style="text-align:center;margin:24px 0;">
+        <a href="${acceptUrl}" style="display:inline-block;padding:14px 40px;background-color:${brandColor};color:#fff;text-decoration:none;border-radius:12px;font-size:15px;font-weight:600;">
+          Accept Quote & Book
+        </a>
+      </div>
+
+      <p style="margin:0;font-size:13px;color:#9ca3af;text-align:center;">
+        Click the button above to confirm your booking. You'll receive an invoice and contract to sign.
+      </p>
+    </div>
+
+    <div style="text-align:center;margin-top:24px;">
+      <p style="font-size:11px;color:#d1d5db;">Sent via Apelier</p>
+    </div>
+  </div>
+</body>
+</html>`
+  };
+}
+
 // --- Template dispatcher ---
 function getEmailContent(template: EmailTemplate, data: Record<string, string>) {
   switch (template) {
@@ -236,6 +290,7 @@ function getEmailContent(template: EmailTemplate, data: Record<string, string>) 
     case 'invoice': return invoiceEmail(data);
     case 'contract_signing': return contractSigningEmail(data);
     case 'reminder': return reminderEmail(data);
+    case 'quote': return quoteEmail(data);
     default: throw new Error(`Unknown template: ${template}`);
   }
 }

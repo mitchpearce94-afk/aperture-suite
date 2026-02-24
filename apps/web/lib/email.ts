@@ -1,6 +1,6 @@
 // Email sending helper — calls /api/email route
 
-export type EmailTemplate = 'gallery_delivery' | 'booking_confirmation' | 'invoice' | 'contract_signing' | 'reminder';
+export type EmailTemplate = 'gallery_delivery' | 'booking_confirmation' | 'invoice' | 'contract_signing' | 'reminder' | 'quote';
 
 export async function sendEmail(template: EmailTemplate, to: string, data: Record<string, string>): Promise<{ success: boolean; dev_mode?: boolean; error?: string }> {
   try {

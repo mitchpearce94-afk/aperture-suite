@@ -10,9 +10,11 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input, Select, Textarea } from '@/components/ui/form-fields';
 import { Combobox } from '@/components/ui/combobox';
 import { formatDate, initials, cn, formatCurrency } from '@/lib/utils';
-import { getLeads, getClients, createLead, updateLead, deleteLead, getCurrentPhotographer, createNewClient, getPackages } from '@/lib/queries';
-import { Inbox, Plus, LayoutGrid, List, Calendar as CalendarIcon, Pencil, Trash2, MapPin, User, MessageSquare } from 'lucide-react';
-import type { Lead, LeadStatus, Client } from '@/lib/types';
+import { getLeads, getClients, createLead, updateLead, deleteLead, getCurrentPhotographer, createNewClient, getPackages, createJob, createInvoice } from '@/lib/queries';
+import { generateContract } from '@/lib/contract-queries';
+import { sendInvoiceEmail, sendBookingConfirmationEmail, sendContractSigningEmail } from '@/lib/email';
+import { Inbox, Plus, LayoutGrid, List, Calendar as CalendarIcon, Pencil, Trash2, MapPin, User, MessageSquare, Briefcase, Loader2 } from 'lucide-react';
+import type { Lead, LeadStatus, Client, Photographer } from '@/lib/types';
 
 interface PackageItem {
   id: string;
@@ -118,6 +120,7 @@ export default function LeadsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [photographerId, setPhotographerId] = useState<string | null>(null);
+  const [photographer, setPhotographer] = useState<Photographer | null>(null);
   const [isNewClient, setIsNewClient] = useState(true);
   const [selectedClientId, setSelectedClientId] = useState('');
   const [packages, setPackages] = useState<PackageItem[]>([]);
@@ -142,6 +145,7 @@ export default function LeadsPage() {
     ]);
     if (photographer) {
       setPhotographerId(photographer.id);
+      setPhotographer(photographer);
       const pkgs = await getPackages(true);
       setPackages(pkgs.map((p: any) => ({
         id: p.id,
@@ -197,17 +201,60 @@ export default function LeadsPage() {
       setClients((prev) => [newClient, ...prev]);
     }
 
+    const pkg = selectedPackage ? packages.find((p) => p.id === selectedPackage) : null;
+
     const newLead = await createLead({
       client_id: clientId || undefined,
       job_type: form.get('job_type') as string || undefined,
       preferred_date: form.get('preferred_date') as string || undefined,
       location: form.get('location') as string || undefined,
       source: form.get('source') as string || undefined,
-      status: 'new',
+      status: pkg ? 'quoted' : 'new',
       notes: form.get('notes') as string || undefined,
-    });
+      quoted_package_id: pkg?.id || undefined,
+      quoted_amount: pkg?.price || undefined,
+    } as any);
 
     if (newLead) {
+      // Send quote email if package selected and client has email
+      if (pkg && newLead.quote_token && photographer) {
+        const client = isNewClient
+          ? { first_name: form.get('new_first_name') as string, email: form.get('new_email') as string }
+          : clients.find((c) => c.id === clientId);
+
+        if (client?.email) {
+          const brandColor = photographer.brand_settings?.primary_color || '#c47d4a';
+          const bizName = photographer.business_name || photographer.name || '';
+          const acceptUrl = `${window.location.origin}/quote/${newLead.quote_token}`;
+
+          fetch('/api/email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              template: 'quote',
+              to: client.email,
+              data: {
+                clientName: client.first_name || 'there',
+                packageName: pkg.name,
+                amount: formatCurrency(pkg.price),
+                includedImages: String(pkg.included_images || ''),
+                jobDate: form.get('preferred_date') as string || '',
+                location: form.get('location') as string || '',
+                photographerName: photographer.name || '',
+                businessName: bizName,
+                brandColor,
+                acceptUrl,
+              },
+            }),
+          }).catch((err) => console.error('Failed to send quote email:', err));
+
+          // Update quote_sent_at
+          const { createClient: createSB } = await import('@/lib/supabase/client');
+          const sb = createSB();
+          await sb.from('leads').update({ quote_sent_at: new Date().toISOString() }).eq('id', newLead.id);
+        }
+      }
+
       setLeads((prev) => [newLead, ...prev]);
       setShowAddModal(false);
       setIsNewClient(true);
