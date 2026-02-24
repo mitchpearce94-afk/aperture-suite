@@ -1,13 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { createClient } from '@/lib/supabase/client';
 import {
   LayoutDashboard, Users, Inbox, Briefcase, Calendar, CalendarCheck, FileText,
   ScrollText, Zap, ImageIcon, Wand2, BarChart3, Settings,
-  ChevronLeft, X,
+  ChevronLeft, X, Sparkles,
 } from 'lucide-react';
 
 const navGroups = [
@@ -56,6 +57,24 @@ function NavContent({ collapsed, onLinkClick, showClose, onClose }: {
   onClose: () => void;
 }) {
   const pathname = usePathname();
+  const [needsUpgrade, setNeedsUpgrade] = useState(false);
+
+  useEffect(() => {
+    async function checkTier() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('photographers')
+        .select('subscription_tier')
+        .eq('auth_user_id', user.id)
+        .single();
+      if (data) {
+        setNeedsUpgrade(data.subscription_tier === 'free_trial' || data.subscription_tier === 'free');
+      }
+    }
+    checkTier();
+  }, []);
 
   return (
     <>
@@ -114,6 +133,40 @@ function NavContent({ collapsed, onLinkClick, showClose, onClose }: {
             </div>
           </div>
         ))}
+
+        {/* Upgrade CTA — only for free trial users */}
+        {needsUpgrade && !collapsed && (
+          <div className="mt-2 mx-1">
+            <Link
+              href="/settings?tab=billing"
+              onClick={onLinkClick}
+              className="block rounded-xl border border-amber-500/20 bg-gradient-to-b from-amber-500/[0.08] to-transparent p-4 hover:border-amber-500/30 transition-all"
+            >
+              <div className="flex items-center gap-2 mb-1.5">
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                <span className="text-xs font-semibold text-white">Upgrade Plan</span>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Unlock unlimited edits, priority processing & more.
+              </p>
+              <div className="mt-3 text-center py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-xs font-semibold text-white transition-colors">
+                View Plans
+              </div>
+            </Link>
+          </div>
+        )}
+        {needsUpgrade && collapsed && (
+          <div className="mt-2 flex justify-center">
+            <Link
+              href="/settings?tab=billing"
+              onClick={onLinkClick}
+              title="Upgrade Plan"
+              className="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center hover:bg-amber-500/20 transition-colors"
+            >
+              <Sparkles className="w-4 h-4 text-amber-400" />
+            </Link>
+          </div>
+        )}
       </nav>
     </>
   );
