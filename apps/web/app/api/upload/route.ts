@@ -19,9 +19,16 @@ export async function POST(request: NextRequest) {
 
     const file = formData.get('file') as File | null;
     const storageKey = formData.get('storageKey') as string | null;
+    const bucket = (formData.get('bucket') as string) || 'photos';
 
     if (!file || !storageKey) {
       return NextResponse.json({ error: 'Missing file or storageKey' }, { status: 400 });
+    }
+
+    // Only allow known buckets
+    const allowedBuckets = ['photos', 'branding'];
+    if (!allowedBuckets.includes(bucket)) {
+      return NextResponse.json({ error: 'Invalid bucket' }, { status: 400 });
     }
 
     const supabase = createServerSupabaseClient();
@@ -38,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     // Upload to Supabase Storage
     const { data, error } = await supabase.storage
-      .from('photos')
+      .from(bucket)
       .upload(storageKey, buffer, {
         cacheControl: '3600',
         upsert: false,

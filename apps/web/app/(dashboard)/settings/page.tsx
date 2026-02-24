@@ -159,13 +159,16 @@ export default function SettingsPage() {
         address_state: p.address?.state || '',
         address_zip: p.address?.zip || '',
       });
-      // Load logo — generate signed URL from stored key
+      // Load logo — use public URL from branding bucket
       const logoKey = (p.brand_settings as any)?.logo_key;
-      if (logoKey) {
+      const logoUrl = (p.brand_settings as any)?.logo_url;
+      if (logoUrl) {
+        setLogoPreview(logoUrl);
+      } else if (logoKey) {
+        // Legacy: try signed URL from photos bucket
         try {
           const sb = createSupabaseClient();
-          const { data: signedData, error: signErr } = await sb.storage.from('photos').createSignedUrl(logoKey, 3600);
-          if (signErr) console.error('Logo signed URL error on load:', signErr);
+          const { data: signedData } = await sb.storage.from('photos').createSignedUrl(logoKey, 3600);
           if (signedData?.signedUrl) setLogoPreview(signedData.signedUrl);
         } catch (e) {
           console.error('Logo load error:', e);
@@ -213,12 +216,13 @@ export default function SettingsPage() {
     if (logoFile) {
       setLogoUploading(true);
       const ext = logoFile.name.split('.').pop()?.toLowerCase() || 'png';
-      const newKey = `${photographer.id}/branding/logo_${Date.now()}.${ext}`;
+      const newKey = `${photographer.id}/logo_${Date.now()}.${ext}`;
       
-      // Use the /api/upload route (same as style pair uploads)
+      // Upload to public branding bucket
       const formData = new FormData();
       formData.append('file', logoFile);
       formData.append('storageKey', newKey);
+      formData.append('bucket', 'branding');
       
       try {
         const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
@@ -228,8 +232,9 @@ export default function SettingsPage() {
           console.error('Logo upload failed:', uploadResult);
           setSaveError(`Logo upload failed: ${uploadResult.error || 'Unknown error'}`);
         } else {
-          // Delete old logo if it exists (non-blocking, don't fail save)
+          // Delete old logo if it exists (try both buckets for migration)
           if (logoKey) {
+            try { await sb.storage.from('branding').remove([logoKey]); } catch {}
             try { await sb.storage.from('photos').remove([logoKey]); } catch {}
           }
           logoKey = uploadResult.storageKey || newKey;
@@ -245,6 +250,7 @@ export default function SettingsPage() {
     // If logo was removed, delete from storage (non-blocking) and clear key
     if (!logoPreview && !logoFile) {
       if (logoKey) {
+        try { await sb.storage.from('branding').remove([logoKey]); } catch {}
         try { await sb.storage.from('photos').remove([logoKey]); } catch {}
       }
       logoKey = null;
@@ -256,15 +262,9 @@ export default function SettingsPage() {
     };
     if (logoKey) {
       updatedBrandSettings.logo_key = logoKey;
-      // Generate a long-lived signed URL for emails (1 year)
-      try {
-        const { data: signedData } = await sb.storage.from('photos').createSignedUrl(logoKey, 60 * 60 * 24 * 365);
-        if (signedData?.signedUrl) {
-          updatedBrandSettings.logo_url = signedData.signedUrl;
-        }
-      } catch (e) {
-        console.error('Failed to generate logo URL:', e);
-      }
+      // Public URL from branding bucket — no auth needed, works in emails
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      updatedBrandSettings.logo_url = `${supabaseUrl}/storage/v1/object/public/branding/${logoKey}`;
     } else {
       delete updatedBrandSettings.logo_key;
       delete updatedBrandSettings.logo_url;
@@ -332,13 +332,8 @@ export default function SettingsPage() {
     // Step 4: Refresh logo preview & update local state
     if (!error || error?.code === '42703') {
       if (logoKey) {
-        try {
-          const { data: signedData, error: signErr } = await sb.storage.from('photos').createSignedUrl(logoKey, 3600);
-          if (signErr) console.error('Signed URL error:', signErr);
-          if (signedData?.signedUrl) setLogoPreview(signedData.signedUrl);
-        } catch (e) {
-          console.error('Signed URL error:', e);
-        }
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        setLogoPreview(`${supabaseUrl}/storage/v1/object/public/branding/${logoKey}`);
       }
       setPhotographer((prev) => prev ? { ...prev, brand_settings: updatedBrandSettings as any } : null);
       setSaved(true);
