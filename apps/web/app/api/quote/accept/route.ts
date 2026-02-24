@@ -102,21 +102,25 @@ export async function POST(request: NextRequest) {
       const gst = 10;
       const jobNum = String(jobNumber).padStart(4, '0');
 
-      const fourteenDaysFromNow = new Date();
+      const now = new Date();
+      const fourteenDaysFromNow = new Date(now);
       fourteenDaysFromNow.setDate(fourteenDaysFromNow.getDate() + 14);
       const fourteenDaysStr = fourteenDaysFromNow.toISOString().split('T')[0];
 
-      const fourteenBeforeShoot = (dateStr: string) => {
-        const d = new Date(dateStr);
-        d.setDate(d.getDate() - 14);
-        return d.toISOString().split('T')[0];
+      const smartDueDate = (dateStr: string | null, daysBefore: number) => {
+        if (!dateStr) return fourteenDaysStr;
+        const shootDate = new Date(dateStr);
+        const dueDate = new Date(shootDate);
+        dueDate.setDate(dueDate.getDate() - daysBefore);
+        if (dueDate <= now) return now.toISOString().split('T')[0];
+        return dueDate.toISOString().split('T')[0];
       };
 
       if (requiresDeposit) {
         const depositAmount = Math.round(packageAmount * (depositPercent / 100) * 100) / 100;
         const finalAmount = Math.round((packageAmount - depositAmount) * 100) / 100;
         const depositDue = fourteenDaysStr;
-        const finalDue = lead.preferred_date ? fourteenBeforeShoot(lead.preferred_date) : fourteenDaysStr;
+        const finalDue = smartDueDate(lead.preferred_date, 14);
 
         const depositTax = Math.round(depositAmount * (gst / 100) * 100) / 100;
         await sb.from('invoices').insert({
@@ -135,7 +139,7 @@ export async function POST(request: NextRequest) {
             description: `${packageName} (${depositPercent}% deposit)`,
             quantity: 1, unit_price: depositAmount, total: depositAmount,
           }],
-          notes: `Deposit of ${depositPercent}% to secure your booking.`,
+          notes: `Deposit of ${depositPercent}% to secure your booking. Due within 14 days.`,
         });
 
         const finalTax = Math.round(finalAmount * (gst / 100) * 100) / 100;
@@ -155,9 +159,10 @@ export async function POST(request: NextRequest) {
             description: `${packageName} (remaining balance)`,
             quantity: 1, unit_price: finalAmount, total: finalAmount,
           }],
+          notes: `Final payment due ${new Date(finalDue).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })} (14 days before session).`,
         });
       } else {
-        const fullDue = lead.preferred_date ? fourteenBeforeShoot(lead.preferred_date) : fourteenDaysStr;
+        const fullDue = smartDueDate(lead.preferred_date, 14);
         const fullTax = Math.round(packageAmount * (gst / 100) * 100) / 100;
         await sb.from('invoices').insert({
           photographer_id: photographerId,
@@ -175,6 +180,7 @@ export async function POST(request: NextRequest) {
             description: packageName,
             quantity: 1, unit_price: packageAmount, total: packageAmount,
           }],
+          notes: `Payment due ${new Date(fullDue).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}.`,
         });
       }
     }

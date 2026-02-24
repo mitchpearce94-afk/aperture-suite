@@ -160,21 +160,35 @@ export async function POST(request: NextRequest) {
       const jobNum = String(jobNumber || 0).padStart(4, '0');
 
       // Helper dates
-      const fourteenDaysFromNow = new Date();
+      const now = new Date();
+      const fourteenDaysFromNow = new Date(now);
       fourteenDaysFromNow.setDate(fourteenDaysFromNow.getDate() + 14);
       const fourteenDaysStr = fourteenDaysFromNow.toISOString().split('T')[0];
 
-      const fourteenBeforeShoot = (dateStr: string) => {
+      const daysBeforeShoot = (dateStr: string, days: number) => {
         const d = new Date(dateStr);
-        d.setDate(d.getDate() - 14);
+        d.setDate(d.getDate() - days);
         return d.toISOString().split('T')[0];
+      };
+
+      // Smart due date: X days before shoot, but if shoot is sooner than that, use today
+      const smartDueDate = (dateStr: string | null, daysBefore: number) => {
+        if (!dateStr) return fourteenDaysStr;
+        const shootDate = new Date(dateStr);
+        const dueDate = new Date(shootDate);
+        dueDate.setDate(dueDate.getDate() - daysBefore);
+        // If due date is in the past or today, set to today
+        if (dueDate <= now) return now.toISOString().split('T')[0];
+        return dueDate.toISOString().split('T')[0];
       };
 
       if (requiresDeposit) {
         const depositAmount = Math.round(packageAmount * (depositPercent / 100) * 100) / 100;
         const finalAmount = Math.round((packageAmount - depositAmount) * 100) / 100;
+        // Deposit: due 14 days after booking
         const depositDue = fourteenDaysStr;
-        const finalDue = slot.date ? fourteenBeforeShoot(slot.date) : fourteenDaysStr;
+        // Final: due 14 days before shoot
+        const finalDue = smartDueDate(slot.date, 14);
 
         const depositTax = Math.round(depositAmount * (gst / 100) * 100) / 100;
         await sb.from('invoices').insert({
@@ -213,11 +227,11 @@ export async function POST(request: NextRequest) {
             description: `${jobLabel} — ${pkgLabel} (remaining balance)`,
             quantity: 1, unit_price: finalAmount, total: finalAmount,
           }],
-          notes: finalDue ? `Final payment due ${new Date(finalDue).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })} (14 days before session).` : 'Final payment — remaining balance.',
+          notes: `Final payment due ${new Date(finalDue).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })} (14 days before session). Invoice will be sent 28 days prior to session date.`,
         });
       } else {
-        // Single invoice
-        const fullDue = slot.date ? fourteenBeforeShoot(slot.date) : fourteenDaysStr;
+        // Single invoice: due 14 days before shoot, or at booking if shoot is sooner
+        const fullDue = smartDueDate(slot.date, 14);
         const fullTax = Math.round(packageAmount * (gst / 100) * 100) / 100;
         await sb.from('invoices').insert({
           photographer_id: photographerId,

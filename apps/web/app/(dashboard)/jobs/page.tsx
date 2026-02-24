@@ -195,24 +195,30 @@ export default function JobsPage() {
         const pkgLabel = newJob.package_name || 'Package';
         const jobNum = String(newJob.job_number || 0).padStart(4, '0');
 
-        // Helper: 14 days from today
+        const now = new Date();
         const fourteenDaysFromNow = () => {
-          const d = new Date();
+          const d = new Date(now);
           d.setDate(d.getDate() + 14);
           return d.toISOString().split('T')[0];
         };
-        // Helper: 14 days before shoot
-        const fourteenBeforeShoot = (dateStr: string) => {
-          const d = new Date(dateStr);
-          d.setDate(d.getDate() - 14);
-          return d.toISOString().split('T')[0];
+
+        // Smart due date: X days before shoot, but if shoot is sooner, use today
+        const smartDueDate = (dateStr: string | undefined, daysBefore: number) => {
+          if (!dateStr) return fourteenDaysFromNow();
+          const shootDate = new Date(dateStr);
+          const dueDate = new Date(shootDate);
+          dueDate.setDate(dueDate.getDate() - daysBefore);
+          if (dueDate <= now) return now.toISOString().split('T')[0];
+          return dueDate.toISOString().split('T')[0];
         };
 
         if (requiresDeposit) {
           const depositAmount = Math.round(packageAmount * (depositPercent / 100) * 100) / 100;
           const finalAmount = Math.round((packageAmount - depositAmount) * 100) / 100;
+          // Deposit: due 14 days after booking
           const depositDue = fourteenDaysFromNow();
-          const finalDue = newJob.date ? fourteenBeforeShoot(newJob.date) : undefined;
+          // Final: due 14 days before shoot
+          const finalDue = smartDueDate(newJob.date, 14);
 
           const depositTax = Math.round(depositAmount * (gst / 100) * 100) / 100;
           await createInvoice({
@@ -249,11 +255,11 @@ export default function JobsPage() {
               description: `${jobLabel} — ${pkgLabel} (remaining balance)`,
               quantity: 1, unit_price: finalAmount, total: finalAmount,
             }],
-            notes: finalDue ? `Final payment due ${new Date(finalDue).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })} (14 days before shoot).` : 'Final payment — remaining balance.',
+            notes: `Final payment due ${new Date(finalDue).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })} (14 days before session). Invoice will be sent 28 days prior to session date.`,
           });
         } else {
-          // Single invoice — full amount, due 14 days before shoot
-          const fullDue = newJob.date ? fourteenBeforeShoot(newJob.date) : fourteenDaysFromNow();
+          // Single invoice: due 14 days before shoot, or at booking if shoot is sooner
+          const fullDue = smartDueDate(newJob.date, 14);
           const fullTax = Math.round(packageAmount * (gst / 100) * 100) / 100;
           await createInvoice({
             client_id: newJob.client_id || undefined,
@@ -325,7 +331,7 @@ export default function JobsPage() {
               const invoiceTotal = Math.round((invoiceAmount + invoiceAmount * (gst / 100)) * 100) / 100;
 
               sendInvoiceEmail({
-                to: client.email!,
+                to: client.email,
                 clientName,
                 invoiceNumber: invoiceNum,
                 amount: formatCurrency(invoiceTotal),
@@ -340,7 +346,7 @@ export default function JobsPage() {
             // Contract signing email
             if (contractSigningUrl) {
               sendContractSigningEmail({
-                to: client.email!,
+                to: client.email,
                 clientName,
                 jobTitle: newJob.title || newJob.job_type || 'Photography Session',
                 signingUrl: contractSigningUrl,

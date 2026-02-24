@@ -22,12 +22,12 @@ The total fee for the services described above is {{package_amount}} (inclusive 
 
 {{#if deposit}}
 DEPOSIT & PAYMENT SCHEDULE:
-A non-refundable deposit of {{deposit_amount}} ({{deposit_percent}}% of the total fee) is required to confirm and secure the booking. The deposit is due upon signing this agreement. The remaining balance of {{final_amount}} is due no later than 14 days before the scheduled date. Failure to pay the remaining balance by the due date may result in cancellation of services, with the deposit forfeited.
+A non-refundable deposit of {{deposit_amount}} ({{deposit_percent}}% of the total fee) is required to confirm and secure the booking. The deposit is due within 14 days of booking. The remaining balance of {{final_amount}} will be invoiced 28 days before the scheduled date and is due no later than 14 days before the scheduled date. Failure to pay the remaining balance by the due date may result in cancellation of services, with the deposit forfeited.
 {{/if}}
 
 {{#if no_deposit}}
 PAYMENT:
-Full payment of {{package_amount}} is due prior to the session date. Payment must be received before the scheduled date for services to proceed.
+Full payment of {{package_amount}} is due no later than 14 days prior to the session date. Payment must be received before the scheduled date for services to proceed.
 {{/if}}
 
 Accepted payment methods include bank transfer, credit card, or any method made available through the Photographer's invoicing system.
@@ -82,6 +82,10 @@ BY THE CLIENT:
     - 14-29 days before: 50% of the total fee is due.
     - Less than 14 days before: the full fee is due.
     - No-show without notice: the full fee is due, no refund.
+
+{{#if deposit}}
+Note: The deposit amount ({{deposit_percent}}% of the total fee) is non-refundable in all cancellation scenarios.
+{{/if}}
 
 BY THE PHOTOGRAPHER:
     - If the Photographer must cancel for any reason, the Client will receive a full refund of all payments made, or the option to reschedule at no additional cost.
