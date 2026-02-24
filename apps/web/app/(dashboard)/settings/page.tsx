@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import {
 import type { Photographer } from '@/lib/types';
 import { DEFAULT_CONTRACT } from '@/lib/default-contract';
 import { SignaturePad } from '@/components/ui/signature-pad';
+import BillingSection from '@/components/dashboard/billing-section';
 
 // ============================================
 // Types
@@ -60,12 +61,12 @@ const timezoneOptions = [
 ];
 
 const currencyOptions = [
-  { value: 'AUD', label: 'AUD — Australian Dollar' },
-  { value: 'USD', label: 'USD — US Dollar' },
-  { value: 'NZD', label: 'NZD — New Zealand Dollar' },
-  { value: 'GBP', label: 'GBP — British Pound' },
-  { value: 'EUR', label: 'EUR — Euro' },
-  { value: 'CAD', label: 'CAD — Canadian Dollar' },
+  { value: 'AUD', label: 'AUD ΓÇö Australian Dollar' },
+  { value: 'USD', label: 'USD ΓÇö US Dollar' },
+  { value: 'NZD', label: 'NZD ΓÇö New Zealand Dollar' },
+  { value: 'GBP', label: 'GBP ΓÇö British Pound' },
+  { value: 'EUR', label: 'EUR ΓÇö Euro' },
+  { value: 'CAD', label: 'CAD ΓÇö Canadian Dollar' },
 ];
 
 // ============================================
@@ -74,6 +75,15 @@ const currencyOptions = [
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
+
+  // Read ?tab= from URL (e.g. after Stripe checkout redirect)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab') as SettingsTab | null;
+    if (tab && tabs.some((t) => t.id === tab)) {
+      setActiveTab(tab);
+    }
+  }, []);
   const [photographer, setPhotographer] = useState<Photographer | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -159,13 +169,12 @@ export default function SettingsPage() {
         address_state: p.address?.state || '',
         address_zip: p.address?.zip || '',
       });
-      // Load logo — use public URL from branding bucket
+      // Load logo ΓÇö generate signed URL from stored key
       const logoKey = (p.brand_settings as any)?.logo_key;
       const logoUrl = (p.brand_settings as any)?.logo_url;
       if (logoUrl) {
         setLogoPreview(logoUrl);
       } else if (logoKey) {
-        // Legacy: try signed URL from photos bucket
         try {
           const sb = createSupabaseClient();
           const { data: signedData } = await sb.storage.from('photos').createSignedUrl(logoKey, 3600);
@@ -218,7 +227,6 @@ export default function SettingsPage() {
       const ext = logoFile.name.split('.').pop()?.toLowerCase() || 'png';
       const newKey = `${photographer.id}/logo_${Date.now()}.${ext}`;
       
-      // Upload to public branding bucket
       const formData = new FormData();
       formData.append('file', logoFile);
       formData.append('storageKey', newKey);
@@ -232,7 +240,6 @@ export default function SettingsPage() {
           console.error('Logo upload failed:', uploadResult);
           setSaveError(`Logo upload failed: ${uploadResult.error || 'Unknown error'}`);
         } else {
-          // Delete old logo if it exists (try both buckets for migration)
           if (logoKey) {
             try { await sb.storage.from('branding').remove([logoKey]); } catch {}
             try { await sb.storage.from('photos').remove([logoKey]); } catch {}
@@ -247,7 +254,6 @@ export default function SettingsPage() {
       setLogoFile(null);
     }
 
-    // If logo was removed, delete from storage (non-blocking) and clear key
     if (!logoPreview && !logoFile) {
       if (logoKey) {
         try { await sb.storage.from('branding').remove([logoKey]); } catch {}
@@ -256,13 +262,12 @@ export default function SettingsPage() {
       logoKey = null;
     }
 
-    // Step 2: Build brand_settings — use null instead of undefined for JSON
+    // Step 2: Build brand_settings ΓÇö use null instead of undefined for JSON
     const updatedBrandSettings: Record<string, any> = {
       ...(photographer.brand_settings || {}),
     };
     if (logoKey) {
       updatedBrandSettings.logo_key = logoKey;
-      // Public URL from branding bucket — no auth needed, works in emails
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       updatedBrandSettings.logo_url = `${supabaseUrl}/storage/v1/object/public/branding/${logoKey}`;
     } else {
@@ -285,7 +290,7 @@ export default function SettingsPage() {
       brand_settings: updatedBrandSettings,
     };
 
-    // Add optional columns — these may not exist if migration hasn't been run
+    // Add optional columns ΓÇö these may not exist if migration hasn't been run
     // Supabase will ignore unknown columns gracefully
     updatePayload.currency = profileForm.currency;
     updatePayload.website = profileForm.website;
@@ -320,7 +325,7 @@ export default function SettingsPage() {
         if (retryErr) {
           setSaveError(`Save failed: ${retryErr.message}`);
         } else {
-          setSaveError('Saved (some fields need migration — run the SQL migration for website, instagram, abn, currency)');
+          setSaveError('Saved (some fields need migration ΓÇö run the SQL migration for website, instagram, abn, currency)');
         }
       } else {
         setSaveError(`Save failed: ${error.message}`);
@@ -494,7 +499,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="flex gap-6">
-        {/* Sidebar nav — desktop only */}
+        {/* Sidebar nav ΓÇö desktop only */}
         <div className="w-52 flex-shrink-0 space-y-1 hidden lg:block">
           {tabs.map((tab) => (
             <button
@@ -560,7 +565,7 @@ export default function SettingsPage() {
                     )}
                   </div>
                   <div className="space-y-3 pt-1">
-                    <p className="text-xs text-slate-500">PNG or JPEG, recommended 500×500px or larger. Transparent background works best.</p>
+                    <p className="text-xs text-slate-500">PNG or JPEG, recommended 500├ù500px or larger. Transparent background works best.</p>
                     <div className="flex items-center gap-2">
                       <label className="cursor-pointer">
                         <input
@@ -626,9 +631,9 @@ export default function SettingsPage() {
                             </div>
                             <p className="text-xs text-slate-500">
                               {pkg.duration_hours}hr{pkg.duration_hours !== 1 ? 's' : ''}
-                              {pkg.included_images > 0 && ` · ${pkg.included_images} images`}
-                              {pkg.deliverables && ` · ${pkg.deliverables}`}
-                              {pkg.require_deposit && ` · ${pkg.deposit_percent}% deposit`}
+                              {pkg.included_images > 0 && ` ┬╖ ${pkg.included_images} images`}
+                              {pkg.deliverables && ` ┬╖ ${pkg.deliverables}`}
+                              {pkg.require_deposit && ` ┬╖ ${pkg.deposit_percent}% deposit`}
                             </p>
                             {pkg.description && <p className="text-xs text-slate-600 mt-1">{pkg.description}</p>}
                           </div>
@@ -780,10 +785,10 @@ export default function SettingsPage() {
               <div className="rounded-lg border border-white/[0.06] p-3">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-600 mb-2">How it works</p>
                 <div className="space-y-1.5 text-xs text-slate-500">
-                  <p>• Merge tags like <span className="text-indigo-400">{'{{client_name}}'}</span> are replaced with real data when the contract is generated.</p>
-                  <p>• Conditional blocks like <span className="text-amber-400">{'{{#if deposit}}'}</span> are only included when relevant.</p>
-                  <p>• The contract adapts automatically — you write one template, it handles every job type.</p>
-                  <p>• Clients receive a link to view and electronically sign the contract.</p>
+                  <p>ΓÇó Merge tags like <span className="text-indigo-400">{'{{client_name}}'}</span> are replaced with real data when the contract is generated.</p>
+                  <p>ΓÇó Conditional blocks like <span className="text-amber-400">{'{{#if deposit}}'}</span> are only included when relevant.</p>
+                  <p>ΓÇó The contract adapts automatically ΓÇö you write one template, it handles every job type.</p>
+                  <p>ΓÇó Clients receive a link to view and electronically sign the contract.</p>
                 </div>
               </div>
 
@@ -860,7 +865,7 @@ export default function SettingsPage() {
 
               <Section title="Custom Domain" description="Use your own domain for client galleries (e.g. gallery.yourbusiness.com). Requires Pro plan.">
                 <Input value={galleryForm.custom_domain} onChange={(e) => setGalleryForm({ ...galleryForm, custom_domain: e.target.value })} placeholder="gallery.yourbusiness.com" disabled />
-                <p className="text-xs text-slate-600">Coming soon — available on Pro plan</p>
+                <p className="text-xs text-slate-600">Coming soon ΓÇö available on Pro plan</p>
               </Section>
 
               <Button onClick={async () => {
@@ -940,37 +945,8 @@ export default function SettingsPage() {
             <EditingStyleSection photographerId={photographer?.id} />
           )}
 
-          {activeTab === 'billing' && (
-            <div className="space-y-6">
-              <Section title="Current Plan" description="Manage your Apelier subscription.">
-                <div className="p-4 rounded-xl border border-indigo-500/20 bg-indigo-500/5">
-                  <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <h3 className="text-sm font-semibold text-white">Free Trial</h3>
-                      <p className="text-xs text-slate-500">14 days remaining</p>
-                    </div>
-                    <span className="text-xs px-2 py-1 rounded-full bg-indigo-500/20 text-indigo-300 font-medium">Trial</span>
-                  </div>
-                  <p className="text-xs text-slate-500 mb-3">Includes all features. No credit card required.</p>
-                  <Button size="sm">Upgrade Plan</Button>
-                </div>
-              </Section>
-
-              <Section title="Payment Method" description="Used for your subscription.">
-                <div className="rounded-xl border border-dashed border-white/[0.08] p-6 text-center">
-                  <CreditCard className="w-6 h-6 text-slate-700 mx-auto mb-2" />
-                  <p className="text-sm text-slate-500 mb-3">No payment method on file</p>
-                  <Button size="sm" variant="secondary" disabled>Add Payment Method</Button>
-                </div>
-              </Section>
-
-              <Section title="Stripe Connect" description="Connect your Stripe account to accept payments from clients.">
-                <div className="rounded-xl border border-dashed border-white/[0.08] p-6 text-center">
-                  <p className="text-sm text-slate-500 mb-3">Connect Stripe to send invoices and accept online payments</p>
-                  <Button size="sm" variant="secondary" disabled>Connect Stripe</Button>
-                </div>
-              </Section>
-            </div>
+          {activeTab === 'billing' && photographer && (
+            <BillingSection photographerId={photographer.id} />
           )}
         </div>
       </div>
@@ -1026,7 +1002,7 @@ function resizeImage(file: File, maxDimension: number, quality: number): Promise
 // ============================================
 
 const TRAINEE_COMMENTS = [
-  "Oh yeah, I love that colour grading 👌",
+  "Oh yeah, I love that colour grading ≡ƒæî",
   "Omg that is so cute",
   "Ooh, the way you handle shadows... *chef's kiss*",
   "OK I see you with those warm tones",
@@ -1035,27 +1011,27 @@ const TRAINEE_COMMENTS = [
   "Golden hour AND consistent whites? You're a wizard",
   "The contrast here is *perfect*",
   "I'm obsessed with your highlight rolloff",
-  "Taking notes... lots of notes 📝",
+  "Taking notes... lots of notes ≡ƒô¥",
   "Your colour palette is so cohesive, I'm impressed",
-  "Oooh moody but not muddy — I see what you did there",
-  "The way you lifted those shadows without losing depth 🤌",
+  "Oooh moody but not muddy ΓÇö I see what you did there",
+  "The way you lifted those shadows without losing depth ≡ƒñî",
   "This is giving main character energy",
   "OK this white balance consistency is elite",
   "I can already feel my neurons rewiring",
-  "Warm, clean, dreamy — got it, got it",
+  "Warm, clean, dreamy ΓÇö got it, got it",
   "You really said 'let there be light' and meant it",
   "These tones are *butter*",
   "Learning so much rn, don't mind me",
   "Your editing style has range and I'm here for it",
   "Saving this one as a personal favourite... for research",
   "The vibes are immaculate, just saying",
-  "Rich blacks but airy highlights — love the balance",
+  "Rich blacks but airy highlights ΓÇö love the balance",
   "This deserves to be on a magazine cover tbh",
   "OK teacher, I think I'm getting the hang of this",
-  "Yep, this is going in the mood board 📌",
+  "Yep, this is going in the mood board ≡ƒôî",
   "You make it look effortless but I know it's not",
   "Studying your colour science like it's a final exam",
-  "Almost there... just soaking in a few more ✨",
+  "Almost there... just soaking in a few more Γ£¿",
 ];
 
 function TraineeComments() {
@@ -1115,7 +1091,7 @@ function TraineeComments() {
 }
 
 // ============================================
-// Editing Style Section — Multi-Style RAW + Edited Pair Training
+// Editing Style Section ΓÇö Multi-Style RAW + Edited Pair Training
 // ============================================
 
 const PAIR_MIN = 10;
@@ -1214,7 +1190,7 @@ function EditingStyleSection({ photographerId }: { photographerId?: string }) {
     <div className="space-y-6">
       <Section
         title="Editing Styles"
-        description="Train multiple styles so you can apply different looks to different photos — your main style, black & white, film, etc."
+        description="Train multiple styles so you can apply different looks to different photos ΓÇö your main style, black & white, film, etc."
       >
         {/* How it works (only show if no styles yet) */}
         {profiles.length === 0 && !creatingNew && (
@@ -1260,10 +1236,10 @@ function EditingStyleSection({ photographerId }: { photographerId?: string }) {
                       <p className="text-sm font-medium text-white">{profile.name}</p>
                       <p className="text-[11px] text-slate-500">
                         {profile.pairCount} pair{profile.pairCount !== 1 ? 's' : ''}
-                        {profile.status === 'ready' && ' · Trained'}
-                        {profile.status === 'training' && ' · Training...'}
-                        {profile.status === 'error' && ' · Failed'}
-                        {profile.trainingDate && ` · ${new Date(profile.trainingDate).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}`}
+                        {profile.status === 'ready' && ' ┬╖ Trained'}
+                        {profile.status === 'training' && ' ┬╖ Training...'}
+                        {profile.status === 'error' && ' ┬╖ Failed'}
+                        {profile.trainingDate && ` ┬╖ ${new Date(profile.trainingDate).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}`}
                       </p>
                     </div>
                   </div>
@@ -1324,7 +1300,7 @@ function EditingStyleSection({ photographerId }: { photographerId?: string }) {
 }
 
 // ============================================
-// New Style Form — RAW + Edited Pair Upload
+// New Style Form ΓÇö RAW + Edited Pair Upload
 // ============================================
 
 function NewStyleForm({ photographerId, onComplete, onCancel }: {
@@ -1536,7 +1512,7 @@ function NewStyleForm({ photographerId, onComplete, onCancel }: {
               : pairStatus === 'good' ? 'text-amber-400'
               : 'text-emerald-400'
           }`}>
-            {pairStatus === 'insufficient' ? `Need ${PAIR_MIN - newPairCount} more` : pairStatus === 'minimum' ? 'OK — more = better' : pairStatus === 'good' ? 'Good' : 'Excellent'}
+            {pairStatus === 'insufficient' ? `Need ${PAIR_MIN - newPairCount} more` : pairStatus === 'minimum' ? 'OK ΓÇö more = better' : pairStatus === 'good' ? 'Good' : 'Excellent'}
           </span>
         </div>
         <div className="h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
@@ -1616,14 +1592,14 @@ function NewStyleForm({ photographerId, onComplete, onCancel }: {
               <span className="text-xs text-amber-400">{unmatchedEdited.length} edited without matching RAW</span>
             </div>
           )}
-          <p className="text-[10px] text-slate-600">Matched by filename — <span className="text-slate-400">IMG_1234.CR2</span> ↔ <span className="text-slate-400">IMG_1234.jpg</span></p>
+          <p className="text-[10px] text-slate-600">Matched by filename ΓÇö <span className="text-slate-400">IMG_1234.CR2</span> Γåö <span className="text-slate-400">IMG_1234.jpg</span></p>
         </div>
       )}
 
       {/* Tips */}
       {rawFiles.length === 0 && editedFiles.length === 0 && (
         <div className="rounded-lg bg-white/[0.02] border border-white/[0.04] p-3">
-          <p className="text-[10px] text-slate-500">Variety matters more than volume — 25 diverse pairs across different scenes will outperform 100 from the same shoot.</p>
+          <p className="text-[10px] text-slate-500">Variety matters more than volume ΓÇö 25 diverse pairs across different scenes will outperform 100 from the same shoot.</p>
         </div>
       )}
 
@@ -1640,7 +1616,7 @@ function NewStyleForm({ photographerId, onComplete, onCancel }: {
             <div className="h-full bg-amber-500 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
           </div>
           {uploadPhase === 'starting' && (
-            <p className="text-[10px] text-amber-400/60 mt-2">Training happens in the background — you can leave this page.</p>
+            <p className="text-[10px] text-amber-400/60 mt-2">Training happens in the background ΓÇö you can leave this page.</p>
           )}
         </div>
       )}
