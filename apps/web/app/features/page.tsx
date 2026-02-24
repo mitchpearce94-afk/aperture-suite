@@ -308,8 +308,8 @@ function FeaturesCTA() {
           14 days free. No credit card. Import your existing data and be running in minutes.
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link href="/signup" className="inline-flex items-center gap-2.5 px-8 py-4 text-base font-sans font-semibold text-white bg-brand-500 rounded-full hover:bg-brand-600 transition-all shadow-xl shadow-brand-500/25">
-            Start Free Trial
+          <Link href="/waitlist" className="inline-flex items-center gap-2.5 px-8 py-4 text-base font-sans font-semibold text-white bg-brand-500 rounded-full hover:bg-brand-600 transition-all shadow-xl shadow-brand-500/25">
+            Join the Waitlist
             <ArrowRight className="w-4 h-4" />
           </Link>
           <Link href="/pricing" className="inline-flex items-center gap-2 px-6 py-4 text-base font-sans font-medium text-warm-grey hover:text-white transition-colors">

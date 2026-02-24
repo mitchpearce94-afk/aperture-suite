@@ -66,9 +66,9 @@ export default function AboutPage() {
       <section className="py-24 text-center">
         <div className="max-w-3xl mx-auto px-6">
           <h2 className="font-display text-3xl text-white mb-4">Join the waitlist</h2>
-          <p className="text-lg font-body text-warm-grey mb-8">We&apos;re onboarding photographers for our early access program. Start your 14-day free trial today.</p>
-          <Link href="/signup" className="inline-flex items-center gap-2.5 px-8 py-4 text-base font-sans font-semibold text-white bg-brand-500 rounded-full hover:bg-brand-600 transition-all shadow-xl shadow-brand-500/25">
-            Start Free Trial
+          <p className="text-lg font-body text-warm-grey mb-8">We&apos;re building the all-in-one platform for photography businesses. Join the waitlist to be first in line.</p>
+          <Link href="/waitlist" className="inline-flex items-center gap-2.5 px-8 py-4 text-base font-sans font-semibold text-white bg-brand-500 rounded-full hover:bg-brand-600 transition-all shadow-xl shadow-brand-500/25">
+            Join the Waitlist
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>

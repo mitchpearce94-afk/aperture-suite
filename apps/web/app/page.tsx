@@ -72,8 +72,8 @@ function Hero() {
 
         {/* CTAs */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16 animate-fade-up" style={{ animationDelay: '0.5s', animationFillMode: 'both' }}>
-          <Link href="/signup" className="group inline-flex items-center gap-2.5 px-8 py-4 text-base font-sans font-semibold text-white bg-brand-500 rounded-full hover:bg-brand-600 transition-all duration-300 shadow-xl shadow-brand-500/25 hover:shadow-brand-500/40 hover:scale-[1.02]">
-            Start Free — 14 Days, No Card
+          <Link href="/waitlist" className="group inline-flex items-center gap-2.5 px-8 py-4 text-base font-sans font-semibold text-white bg-brand-500 rounded-full hover:bg-brand-600 transition-all duration-300 shadow-xl shadow-brand-500/25 hover:shadow-brand-500/40 hover:scale-[1.02]">
+            Join the Waitlist
             <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
           </Link>
           <Link href="/features" className="inline-flex items-center gap-2 px-6 py-4 text-base font-sans font-medium text-warm-grey hover:text-white transition-colors">
@@ -552,7 +552,7 @@ function PricingPreview() {
               </div>
               <p className="text-xs font-sans text-warm-grey mb-4">{tier.edits} AI edits/month</p>
               <Link href="/pricing" className={`block text-center py-2.5 rounded-full text-sm font-sans font-semibold transition-all ${tier.popular ? 'bg-brand-500 text-white hover:bg-brand-600' : 'bg-white/[0.06] text-white hover:bg-white/[0.1]'}`}>
-                Get Started
+                Join the Waitlist
               </Link>
             </div>
           ))}
@@ -587,7 +587,7 @@ function MigrationCTA() {
                 </span>
               ))}
             </div>
-            <Link href="/signup" className="inline-flex items-center gap-2 px-8 py-4 text-base font-sans font-semibold text-white bg-brand-500 rounded-full hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/20">
+            <Link href="/waitlist" className="inline-flex items-center gap-2 px-8 py-4 text-base font-sans font-semibold text-white bg-brand-500 rounded-full hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/20">
               Start Your Free Trial
               <ArrowRight className="w-4 h-4" />
             </Link>
@@ -606,8 +606,8 @@ function FinalCTA() {
         <ApelierLogo className="w-12 h-12 mx-auto mb-6" />
         <h2 className="font-display text-3xl md:text-4xl text-white mb-4">Ready to shoot, edit, deliver?</h2>
         <p className="text-lg font-body text-warm-grey mb-8 max-w-xl mx-auto">14 days free. No credit card. Import your data from any CRM. Be running in minutes.</p>
-        <Link href="/signup" className="inline-flex items-center gap-2.5 px-8 py-4 text-base font-sans font-semibold text-white bg-brand-500 rounded-full hover:bg-brand-600 transition-all duration-300 shadow-xl shadow-brand-500/25 hover:shadow-brand-500/40">
-          Start Free Trial
+        <Link href="/waitlist" className="inline-flex items-center gap-2.5 px-8 py-4 text-base font-sans font-semibold text-white bg-brand-500 rounded-full hover:bg-brand-600 transition-all duration-300 shadow-xl shadow-brand-500/25 hover:shadow-brand-500/40">
+          Join the Waitlist
           <ArrowRight className="w-4 h-4" />
         </Link>
       </div>

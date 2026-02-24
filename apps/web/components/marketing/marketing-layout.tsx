@@ -88,10 +88,10 @@ function Navbar() {
             Sign in
           </Link>
           <Link
-            href="/signup"
+            href="/waitlist"
             className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-sans font-semibold text-white bg-brand-500 rounded-full hover:bg-brand-600 transition-all duration-200 shadow-lg shadow-brand-500/20 hover:shadow-brand-500/30"
           >
-            Start Free Trial
+            Join the Waitlist
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
@@ -127,10 +127,10 @@ function Navbar() {
                 Sign in
               </Link>
               <Link
-                href="/signup"
+                href="/waitlist"
                 className="inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-sans font-semibold text-white bg-brand-500 rounded-full"
               >
-                Start Free Trial
+                Join the Waitlist
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>

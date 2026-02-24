@@ -49,7 +49,7 @@ function PricingCards() {
         '2,000 AI edits/month',
         '1 editing style',
       ],
-      cta: 'Start Free Trial',
+      cta: 'Join the Waitlist',
     },
     {
       name: 'Pro',
@@ -69,7 +69,7 @@ function PricingCards() {
         'Advanced analytics',
         'Priority support',
       ],
-      cta: 'Start Free Trial',
+      cta: 'Join the Waitlist',
     },
     {
       name: 'Studio',
@@ -88,7 +88,7 @@ function PricingCards() {
         'Dedicated support',
         'Custom onboarding',
       ],
-      cta: 'Start Free Trial',
+      cta: 'Join the Waitlist',
     },
   ];
 
@@ -183,7 +183,7 @@ function PricingCards() {
                 </ul>
 
                 <Link
-                  href="/signup"
+                  href="/waitlist"
                   className={`block text-center py-3 rounded-full text-sm font-sans font-semibold transition-all ${
                     tier.popular
                       ? 'bg-brand-500 text-white hover:bg-brand-600 shadow-lg shadow-brand-500/20'
@@ -200,7 +200,7 @@ function PricingCards() {
         {/* Free trial callout */}
         <div className="text-center mt-10">
           <p className="text-sm font-body text-warm-grey">
-            All plans start with a <span className="text-white font-medium">14-day free trial</span> — no credit card required. 50 AI edits included.
+            All plans will include a <span className="text-white font-medium">14-day free trial</span> at launch — no credit card required. Join the waitlist to be first in line.
           </p>
         </div>
       </div>
@@ -317,8 +317,8 @@ function FAQ() {
 
   const faqs = [
     {
-      q: 'How does the free trial work?',
-      a: 'You get 14 days of full access with no credit card required. The trial includes 50 AI edits and all CRM, booking, invoicing, contract, and gallery features. Galleries created during the trial have a small watermark. When your trial ends, you can upgrade to keep going or your account pauses.',
+      q: 'How will the free trial work at launch?',
+      a: 'When we launch, every plan will include 14 days of full access with no credit card required. The trial will include 50 AI edits and all CRM, booking, invoicing, contract, and gallery features. Join the waitlist to be notified when we\'re ready.',
     },
     {
       q: 'What happens if I exceed my monthly AI edit limit?',
@@ -385,10 +385,10 @@ function PricingCTA() {
   return (
     <Section className="py-24 md:py-32 text-center">
       <div className="max-w-3xl mx-auto px-6">
-        <h2 className="font-display text-3xl md:text-4xl text-white mb-4">Start your free trial today</h2>
+        <h2 className="font-display text-3xl md:text-4xl text-white mb-4">Join the waitlist</h2>
         <p className="text-lg font-body text-warm-grey mb-8 max-w-xl mx-auto">14 days. No credit card. Full access to everything.</p>
-        <Link href="/signup" className="inline-flex items-center gap-2.5 px-8 py-4 text-base font-sans font-semibold text-white bg-brand-500 rounded-full hover:bg-brand-600 transition-all shadow-xl shadow-brand-500/25">
-          Start Free Trial
+        <Link href="/waitlist" className="inline-flex items-center gap-2.5 px-8 py-4 text-base font-sans font-semibold text-white bg-brand-500 rounded-full hover:bg-brand-600 transition-all shadow-xl shadow-brand-500/25">
+          Join the Waitlist
           <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
