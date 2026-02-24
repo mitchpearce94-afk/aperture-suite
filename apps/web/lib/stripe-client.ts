@@ -62,6 +62,6 @@ export const FREE_TRIAL_EDIT_LIMIT = 50;
 export const FREE_TRIAL_DAYS = 14;
 
 export function getEditLimit(tier: SubscriptionTier): number {
-  if (tier === 'free_trial') return FREE_TRIAL_EDIT_LIMIT;
-  return TIER_CONFIG[tier].editLimit;
+  if (!tier || tier === 'free_trial') return FREE_TRIAL_EDIT_LIMIT;
+  return TIER_CONFIG[tier]?.editLimit ?? FREE_TRIAL_EDIT_LIMIT;
 }

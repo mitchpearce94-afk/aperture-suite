@@ -66,8 +66,8 @@ export const FREE_TRIAL_DAYS = 14;
 
 // --- Helper: Get edit limit for a tier ---
 export function getEditLimit(tier: SubscriptionTier): number {
-  if (tier === 'free_trial') return FREE_TRIAL_EDIT_LIMIT;
-  return TIER_CONFIG[tier].editLimit;
+  if (!tier || tier === 'free_trial') return FREE_TRIAL_EDIT_LIMIT;
+  return TIER_CONFIG[tier]?.editLimit ?? FREE_TRIAL_EDIT_LIMIT;
 }
 
 // --- Helper: Get tier from Stripe price ID ---
