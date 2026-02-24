@@ -28,12 +28,13 @@ export default function BillingSection({ photographerId }: BillingProps) {
   }, []);
 
   async function loadBillingData() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('photographers')
       .select('subscription_tier, subscription_status, images_edited_count, billing_period_start, billing_period_end, trial_ends_at, email')
       .eq('id', photographerId)
       .single();
 
+    if (error) console.error('Billing data load error:', error);
     if (data) setBillingData(data as any);
     setLoading(false);
   }
@@ -100,11 +101,11 @@ export default function BillingSection({ photographerId }: BillingProps) {
 
   if (!billingData) return null;
 
-  const tier = billingData.subscription_tier as SubscriptionTier;
-  const status = billingData.subscription_status;
+  const tier = (billingData.subscription_tier || 'free_trial') as SubscriptionTier;
+  const status = billingData.subscription_status || 'trialing';
   const editLimit = getEditLimit(tier);
   const editCount = billingData.images_edited_count || 0;
-  const editPercent = Math.min(100, Math.round((editCount / editLimit) * 100));
+  const editPercent = editLimit > 0 ? Math.min(100, Math.round((editCount / editLimit) * 100)) : 0;
   const isTrialing = tier === 'free_trial';
   const isActive = status === 'active' || status === 'trialing';
   const isPastDue = status === 'past_due';
