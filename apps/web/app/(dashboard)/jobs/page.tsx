@@ -305,7 +305,7 @@ export default function JobsPage() {
 
           // Booking confirmation email — sent immediately
           sendBookingConfirmationEmail({
-            to: client.email,
+            to: client.email!,
             clientName,
             jobTitle: newJob.title || newJob.job_type || 'Photography Session',
             jobDate: newJob.date ? new Date(newJob.date).toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '',
@@ -331,7 +331,7 @@ export default function JobsPage() {
               const invoiceTotal = Math.round((invoiceAmount + invoiceAmount * (gst / 100)) * 100) / 100;
 
               sendInvoiceEmail({
-                to: client.email,
+                to: client.email!,
                 clientName,
                 invoiceNumber: invoiceNum,
                 amount: formatCurrency(invoiceTotal),
@@ -346,7 +346,7 @@ export default function JobsPage() {
             // Contract signing email
             if (contractSigningUrl) {
               sendContractSigningEmail({
-                to: client.email,
+                to: client.email!,
                 clientName,
                 jobTitle: newJob.title || newJob.job_type || 'Photography Session',
                 signingUrl: contractSigningUrl,
