@@ -184,6 +184,11 @@ export interface Lead {
   source?: string;
   status: LeadStatus;
   notes?: string;
+  quote_token?: string;
+  quoted_package_id?: string;
+  quoted_amount?: number;
+  quote_sent_at?: string;
+  quote_accepted_at?: string;
   created_at: string;
   updated_at: string;
 }
