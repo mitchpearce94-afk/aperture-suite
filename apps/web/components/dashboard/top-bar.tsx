@@ -54,7 +54,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   };
 
   return (
-    <header className="flex items-center justify-between h-14 lg:h-16 px-4 lg:px-6 border-b border-white/[0.06] bg-[#07070d]/95 backdrop-blur-md flex-shrink-0 z-30 max-w-full overflow-hidden">
+    <header className="relative flex items-center justify-between h-14 lg:h-16 px-4 lg:px-6 border-b border-white/[0.06] bg-[#07070d]/95 backdrop-blur-md flex-shrink-0 z-30 max-w-full">
       {/* Left side */}
       <div className="flex items-center gap-3 flex-1 min-w-0">
         {/* Hamburger — mobile only */}
@@ -71,7 +71,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
           <input
             type="text"
             placeholder="Search clients, jobs, galleries..."
-            className="w-full pl-10 pr-4 py-2 text-sm bg-white/[0.04] border border-white/[0.08] rounded-lg text-slate-300 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 transition-all"
+            className="w-full pl-10 pr-4 py-2 text-sm bg-white/[0.04] border border-white/[0.08] rounded-lg text-slate-300 placeholder:text-slate-600 focus:outline-none focus:border-brand-500/50 focus:ring-1 focus:ring-brand-500/20 transition-all"
           />
           <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-600 bg-white/[0.06] px-1.5 py-0.5 rounded border border-white/[0.08] hidden md:inline">
             ⌘K
@@ -88,7 +88,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
       <div className="flex items-center gap-2 lg:gap-3 flex-shrink-0">
         <button className="relative p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] transition-colors">
           <Bell className="w-[18px] h-[18px]" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-indigo-500 rounded-full" />
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-brand-500 rounded-full" />
         </button>
 
         {/* User menu */}
@@ -97,7 +97,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
             onClick={() => setUserMenuOpen(!userMenuOpen)}
             className="flex items-center gap-2 pl-2 lg:pl-3 pr-1.5 lg:pr-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors"
           >
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center">
               <span className="text-[11px] font-semibold text-white">{initials || '??'}</span>
             </div>
             <ChevronDown className="w-3 h-3 text-slate-500 hidden sm:block" />
