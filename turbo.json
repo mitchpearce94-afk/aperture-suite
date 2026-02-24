@@ -5,7 +5,7 @@
     "build": {
       "dependsOn": ["^build"],
       "outputs": [".next/**", "!.next/cache/**"],
-      "env": ["SUPABASE_SERVICE_ROLE_KEY", "AI_ENGINE_URL", "RESEND_API_KEY", "RESEND_FROM_EMAIL"]
+      "env": ["SUPABASE_SERVICE_ROLE_KEY", "AI_ENGINE_URL", "RESEND_API_KEY", "RESEND_FROM_EMAIL", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]
     },
     "lint": {},
     "dev": {
