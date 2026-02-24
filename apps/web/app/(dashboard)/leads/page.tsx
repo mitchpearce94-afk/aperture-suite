@@ -226,6 +226,8 @@ export default function LeadsPage() {
           const brandColor = photographer.brand_settings?.primary_color || '#c47d4a';
           const bizName = photographer.business_name || photographer.name || '';
           const acceptUrl = `${window.location.origin}/quote/${newLead.quote_token}`;
+          const prefDate = form.get('preferred_date') as string || '';
+          const formattedDate = prefDate ? new Date(prefDate).toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '';
 
           fetch('/api/email', {
             method: 'POST',
@@ -238,12 +240,16 @@ export default function LeadsPage() {
                 packageName: pkg.name,
                 amount: formatCurrency(pkg.price),
                 includedImages: String(pkg.included_images || ''),
-                jobDate: form.get('preferred_date') as string || '',
+                jobDate: formattedDate,
                 location: form.get('location') as string || '',
                 photographerName: photographer.name || '',
                 businessName: bizName,
                 brandColor,
                 acceptUrl,
+                logoUrl: photographer.brand_settings?.logo_url || '',
+                phone: photographer.phone || '',
+                contactEmail: photographer.email || '',
+                website: photographer.website || '',
               },
             }),
           }).catch((err) => console.error('Failed to send quote email:', err));

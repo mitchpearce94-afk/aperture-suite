@@ -303,17 +303,26 @@ export default function JobsPage() {
           const brandColor = photographer.brand_settings?.primary_color || '#c47d4a';
           const bizName = photographer.business_name || photographer.name || '';
 
+          // Shared brand data for all emails
+          const brandData = {
+            photographerName: photographer.name || '',
+            businessName: bizName,
+            brandColor,
+            logoUrl: photographer.brand_settings?.logo_url || '',
+            phone: photographer.phone || '',
+            contactEmail: photographer.email || '',
+            website: photographer.website || '',
+          };
+
           // Booking confirmation email — sent immediately
           sendBookingConfirmationEmail({
+            ...brandData,
             to: client.email!,
             clientName,
             jobTitle: newJob.title || newJob.job_type || 'Photography Session',
             jobDate: newJob.date ? new Date(newJob.date).toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '',
             jobTime: newJob.time || '',
             location: newJob.location || '',
-            photographerName: photographer.name || '',
-            businessName: bizName,
-            brandColor,
           }).catch((err) => console.error('Failed to send booking email:', err));
 
           // Delayed emails — invoice + contract sent 30s later
@@ -331,28 +340,24 @@ export default function JobsPage() {
               const invoiceTotal = Math.round((invoiceAmount + invoiceAmount * (gst / 100)) * 100) / 100;
 
               sendInvoiceEmail({
+                ...brandData,
                 to: client.email!,
                 clientName,
                 invoiceNumber: invoiceNum,
                 amount: formatCurrency(invoiceTotal),
                 dueDate: new Date(Date.now() + 14 * 86400000).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' }),
                 jobTitle: newJob.title || newJob.job_type || 'Photography Session',
-                photographerName: photographer.name || '',
-                businessName: bizName,
-                brandColor,
               }).catch((err) => console.error('Failed to send invoice email:', err));
             }
 
             // Contract signing email
             if (contractSigningUrl) {
               sendContractSigningEmail({
+                ...brandData,
                 to: client.email!,
                 clientName,
                 jobTitle: newJob.title || newJob.job_type || 'Photography Session',
                 signingUrl: contractSigningUrl,
-                photographerName: photographer.name || '',
-                businessName: bizName,
-                brandColor,
               }).catch((err) => console.error('Failed to send contract email:', err));
             }
           }, 30000); // 30 seconds
